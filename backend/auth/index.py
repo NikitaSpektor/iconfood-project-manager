@@ -35,7 +35,7 @@ def handler(event: dict, context) -> dict:
     if method == 'GET':
         action = (event.get('queryStringParameters') or {}).get('action', 'me')
         if action == 'members':
-            cur.execute('SELECT id, name, login, email, role, restaurant, position FROM users ORDER BY id')
+            cur.execute('SELECT id, name, login, email, role, restaurant, position FROM users WHERE active = TRUE ORDER BY id')
             members = [
                 {'id': str(r[0]), 'name': r[1], 'login': r[2], 'email': r[3], 'role': r[4],
                  'restaurant': r[5], 'position': r[6], 'online': r[0] % 3 != 2}
@@ -75,7 +75,7 @@ def handler(event: dict, context) -> dict:
             cur.close()
             conn.close()
             return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'error': 'Введите логин и пароль'})}
-        cur.execute('SELECT id, name, login, role, restaurant, email, password_hash, position FROM users WHERE login = ' + q(login))
+        cur.execute('SELECT id, name, login, role, restaurant, email, password_hash, position FROM users WHERE active = TRUE AND login = ' + q(login))
         row = cur.fetchone()
         if not row or row[6] != hash_password(login, password):
             cur.close()

@@ -10,14 +10,14 @@
       "name": "Неверный пароль",
       "method": "POST",
       "path": "/",
-      "body": {"action": "login", "login": "alina.vetrova", "password": "wrong"},
+      "body": {"action": "login", "login": "elena.metla", "password": "wrong"},
       "expectedStatus": 401
     },
     {
       "name": "Успешный вход",
       "method": "POST",
       "path": "/",
-      "body": {"action": "login", "login": "alina.vetrova", "password": "iconfood"},
+      "body": {"action": "login", "login": "elena.metla", "password": "iconfood"},
       "expectedStatus": 200
     }
   ]
