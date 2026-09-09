@@ -1,0 +1,13 @@
+CREATE TABLE IF NOT EXISTS attachments (
+  id SERIAL PRIMARY KEY,
+  task_id INTEGER NOT NULL REFERENCES tasks(id),
+  name VARCHAR(300) NOT NULL,
+  url TEXT NOT NULL,
+  mime VARCHAR(120) NOT NULL DEFAULT '',
+  size_bytes INTEGER NOT NULL DEFAULT 0,
+  author VARCHAR(120) NOT NULL DEFAULT '',
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  archived BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+CREATE INDEX IF NOT EXISTS idx_attachments_task ON attachments(task_id);

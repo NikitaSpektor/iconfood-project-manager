@@ -18,6 +18,8 @@ interface WorkspaceValue {
   toggleSubtask: (taskId: string, subtaskId: string) => void;
   createTask: (task: Omit<Task, 'id'>) => void;
   addComment: (taskId: string, text: string) => Promise<void>;
+  attachFile: (taskId: string, file: File) => Promise<void>;
+  removeFile: (taskId: string, fileId: string) => Promise<void>;
   sendMessage: (channelId: string, text: string) => void;
   readChannel: (channelId: string) => void;
 }
@@ -83,6 +85,41 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
     }
   }, []);
 
+  const attachFile = useCallback(async (taskId: string, file: File) => {
+    if (file.size > 8 * 1024 * 1024) {
+      toast({ title: 'Файл больше 8 МБ', description: 'Загрузите файл поменьше', variant: 'destructive' });
+      return;
+    }
+    try {
+      const data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const updated = await taskAction({
+        action: 'attach',
+        taskId,
+        name: file.name,
+        mime: file.type || 'application/octet-stream',
+        data,
+      });
+      setTasks(updated);
+      toast({ title: 'Файл прикреплён', description: file.name });
+    } catch {
+      toast({ title: 'Не удалось загрузить файл', variant: 'destructive' });
+    }
+  }, []);
+
+  const removeFile = useCallback(async (taskId: string, fileId: string) => {
+    try {
+      const updated = await taskAction({ action: 'detach', taskId, fileId });
+      setTasks(updated);
+    } catch {
+      toast({ title: 'Не удалось удалить файл', variant: 'destructive' });
+    }
+  }, []);
+
   const sendMessage = useCallback(
     (channelId: string, text: string) => {
       const message: ChatMessage = {
@@ -117,10 +154,25 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
       toggleSubtask,
       createTask,
       addComment,
+      attachFile,
+      removeFile,
       sendMessage,
       readChannel,
     }),
-    [tasks, channels, loading, user, moveTask, toggleSubtask, createTask, addComment, sendMessage, readChannel],
+    [
+      tasks,
+      channels,
+      loading,
+      user,
+      moveTask,
+      toggleSubtask,
+      createTask,
+      addComment,
+      attachFile,
+      removeFile,
+      sendMessage,
+      readChannel,
+    ],
   );
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

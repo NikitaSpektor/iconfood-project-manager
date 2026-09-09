@@ -16,6 +16,16 @@ export interface Comment {
   createdAt: string;
 }
 
+export interface Attachment {
+  id: string;
+  name: string;
+  url: string;
+  mime: string;
+  size: number;
+  author: string;
+  createdAt: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -30,6 +40,7 @@ export interface Task {
   personal: boolean;
   subtasks: Subtask[];
   comments?: Comment[];
+  attachments?: Attachment[];
   note?: string;
   ganttStart: number;
   ganttSpan: number;

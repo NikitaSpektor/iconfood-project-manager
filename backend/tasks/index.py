@@ -1,6 +1,10 @@
+import base64
 import json
 import os
+import re
+import uuid
 
+import boto3
 import psycopg2
 
 CORS = {
@@ -42,6 +46,22 @@ def load_tasks(cur, login):
     for task_id, sid, title, done in cur.fetchall():
         subs.setdefault(task_id, []).append({'id': str(sid), 'title': title, 'done': done})
 
+    cur.execute(
+        'SELECT task_id, id, name, url, mime, size_bytes, author, created_at FROM attachments '
+        'WHERE archived = FALSE ORDER BY id'
+    )
+    files = {}
+    for task_id, fid, name, url, mime, size, author, created in cur.fetchall():
+        files.setdefault(task_id, []).append({
+            'id': str(fid),
+            'name': name,
+            'url': url,
+            'mime': mime,
+            'size': size,
+            'author': author,
+            'createdAt': created.isoformat(),
+        })
+
     cur.execute('SELECT task_id, id, author, text, created_at FROM comments ORDER BY id')
     comments = {}
     for task_id, cid, author, text, created in cur.fetchall():
@@ -71,6 +91,7 @@ def load_tasks(cur, login):
             'personal': bool(r[14]) and r[14] == login,
             'subtasks': subs.get(r[0], []),
             'comments': comments.get(r[0], []),
+            'attachments': files.get(r[0], []),
         })
     return tasks
 
@@ -103,6 +124,32 @@ def handler(event: dict, context) -> dict:
         conn.commit()
     elif action == 'toggle':
         cur.execute('UPDATE subtasks SET done = NOT done WHERE id = ' + str(int(body.get('subtaskId'))))
+        conn.commit()
+    elif action == 'attach':
+        name = str(body.get('name', 'file'))[:200]
+        mime = str(body.get('mime', 'application/octet-stream'))[:120]
+        raw = str(body.get('data', ''))
+        if ',' in raw and raw.strip().startswith('data:'):
+            raw = raw.split(',', 1)[1]
+        content = base64.b64decode(raw)
+        safe = re.sub(r'[^A-Za-z0-9._-]', '_', name) or 'file'
+        key = f"tasks/{int(body.get('taskId'))}/{uuid.uuid4().hex[:10]}_{safe}"
+        s3 = boto3.client(
+            's3',
+            endpoint_url='https://bucket.poehali.dev',
+            aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+            aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],
+        )
+        s3.put_object(Bucket='files', Key=key, Body=content, ContentType=mime)
+        url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
+        cur.execute(
+            'INSERT INTO attachments (task_id, name, url, mime, size_bytes, author) VALUES ('
+            + str(int(body.get('taskId'))) + ', ' + q(name) + ', ' + q(url) + ', ' + q(mime) + ', '
+            + str(len(content)) + ', ' + q(user['name']) + ')'
+        )
+        conn.commit()
+    elif action == 'detach':
+        cur.execute('UPDATE attachments SET archived = TRUE WHERE id = ' + str(int(body.get('fileId'))))
         conn.commit()
     elif action == 'comment':
         text = str(body.get('text', '')).strip()

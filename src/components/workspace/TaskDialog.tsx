@@ -19,6 +19,7 @@ import {
 } from '@/data/workspace';
 import { useWorkspace } from '@/hooks/use-workspace';
 import TaskComments from './TaskComments';
+import TaskAttachments from './TaskAttachments';
 import { cn } from '@/lib/utils';
 
 const columnOrder: ColumnId[] = ['new', 'progress', 'done'];
@@ -153,6 +154,8 @@ export default function TaskDialog({
               ))}
             </div>
           </div>
+
+          <TaskAttachments taskId={live.id} files={live.attachments ?? []} />
 
           <TaskComments taskId={live.id} comments={live.comments ?? []} />
         </div>
