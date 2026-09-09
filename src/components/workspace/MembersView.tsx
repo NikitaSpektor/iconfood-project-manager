@@ -23,6 +23,7 @@ export default function MembersView() {
   const [error, setError] = useState('');
   const [filterRest, setFilterRest] = useState('all');
   const [filterRole, setFilterRole] = useState('all');
+  const [filterPos, setFilterPos] = useState('all');
 
   useEffect(() => {
     fetchMembers()
@@ -30,17 +31,36 @@ export default function MembersView() {
       .catch(() => toast({ title: 'Не удалось загрузить участников', variant: 'destructive' }));
   }, []);
 
-  const list = useMemo(
+  const positions = useMemo(
     () =>
-      people.filter(
-        (m) =>
-          (m.name.toLowerCase().includes(query.trim().toLowerCase()) ||
-            m.login.includes(query.trim().toLowerCase())) &&
-          (filterRest === 'all' || m.restaurant === filterRest) &&
-          (filterRole === 'all' || m.role === filterRole),
+      Array.from(new Set(people.map((m) => (m.position ?? '').trim()).filter(Boolean))).sort(
+        (a, b) => a.localeCompare(b, 'ru'),
       ),
-    [people, query, filterRest, filterRole],
+    [people],
   );
+
+  const list = useMemo(() => {
+    const term = query.trim().toLowerCase();
+    return people.filter(
+      (m) =>
+        (m.name.toLowerCase().includes(term) ||
+          m.login.includes(term) ||
+          (m.position ?? '').toLowerCase().includes(term)) &&
+        (filterRest === 'all' || m.restaurant === filterRest) &&
+        (filterRole === 'all' || m.role === filterRole) &&
+        (filterPos === 'all' || (m.position ?? '').trim() === filterPos),
+    );
+  }, [people, query, filterRest, filterRole, filterPos]);
+
+  const dirty =
+    filterRest !== 'all' || filterRole !== 'all' || filterPos !== 'all' || query.trim() !== '';
+
+  function resetFilters() {
+    setFilterRest('all');
+    setFilterRole('all');
+    setFilterPos('all');
+    setQuery('');
+  }
 
   async function sendInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -136,6 +156,19 @@ export default function MembersView() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={filterPos} onValueChange={setFilterPos}>
+            <SelectTrigger className="w-[170px] h-9 rounded-full text-[12px] border-line bg-card">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rounded-2xl max-h-[300px]">
+              <SelectItem value="all" className="text-[13px]">Все должности</SelectItem>
+              {positions.map((p) => (
+                <SelectItem key={p} value={p} className="text-[13px]">
+                  {p}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="relative">
             <Icon
               name="Search"
@@ -145,13 +178,29 @@ export default function MembersView() {
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Поиск по имени или логину"
+              placeholder="Имя, должность или логин"
               className="rounded-full h-9 pl-8 w-52 bg-card border-line text-[13px]"
             />
           </div>
+          {dirty && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={resetFilters}
+              className="rounded-full h-9 border-line text-[12px] gap-1.5"
+            >
+              <Icon name="X" size={14} />
+              Сбросить
+            </Button>
+          )}
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar space-y-2 pr-0.5">
+          {list.length === 0 && (
+            <div className="rounded-tile border border-dashed border-line py-12 text-center text-[12px] text-muted-foreground">
+              Никого не нашли — попробуйте изменить фильтры
+            </div>
+          )}
           {list.map((m) => (
             <div
               key={m.id}
