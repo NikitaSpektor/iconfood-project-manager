@@ -76,6 +76,7 @@ export interface Channel {
   id: string;
   name: string;
   open?: boolean;
+  kind?: 'channel' | 'direct';
   createdBy?: string;
   members?: { name: string; login: string }[];
   hint: string;

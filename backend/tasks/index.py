@@ -75,7 +75,7 @@ def load_notifications(cur, login):
 
 def load_channels(cur, user):
     cur.execute(
-        'SELECT c.id, c.name, c.hint, c.is_open, c.created_by FROM channels c WHERE c.archived = FALSE AND '
+        'SELECT c.id, c.name, c.hint, c.is_open, c.created_by, c.kind FROM channels c WHERE c.archived = FALSE AND '
         '(c.is_open = TRUE OR EXISTS (SELECT 1 FROM channel_members m WHERE m.channel_id = c.id '
         'AND m.active = TRUE AND m.user_login = ' + q(user['login']) + ')) ORDER BY c.position, c.id'
     )
@@ -117,14 +117,24 @@ def load_channels(cur, user):
     reads = {r[0]: r[1] for r in cur.fetchall()}
 
     channels = []
-    for cid, name, hint, is_open, created_by in rows:
+    for cid, name, hint, is_open, created_by, kind in rows:
         msgs = grouped.get(cid, [])
         last_read = reads.get(cid, 0)
         people = members.get(cid, [])
+        title = name
+        subtitle = hint or ('Все сотрудники' if is_open else f'{len(people)} участников')
+        if kind == 'direct':
+            other = next((p for p in people if p['login'] != user['login']), None)
+            if other:
+                title = other['name']
+                cur.execute('SELECT position FROM users WHERE login = ' + q(other['login']))
+                pos = cur.fetchone()
+                subtitle = (pos[0] if pos and pos[0] else 'Личная переписка')
         channels.append({
             'id': str(cid),
-            'name': name,
-            'hint': hint or ('Все сотрудники' if is_open else f'{len(people)} участников'),
+            'name': title,
+            'hint': subtitle,
+            'kind': kind,
             'open': is_open,
             'createdBy': created_by,
             'members': people,
@@ -224,7 +234,27 @@ def handler(event: dict, context) -> dict:
     body = json.loads(event.get('body') or '{}')
     action = body.get('action', '')
 
-    if action == 'channel_members':
+    if action == 'open_direct':
+        other = str(body.get('login', '')).strip().lower()
+        if other and other != user['login']:
+            key = ':'.join(sorted([user['login'], other]))
+            cur.execute('SELECT id FROM channels WHERE dm_key = ' + q(key))
+            found = cur.fetchone()
+            if not found:
+                cur.execute(
+                    "INSERT INTO channels (name, hint, position, is_open, created_by, kind, dm_key) "
+                    "VALUES ('Личная переписка', '', 500, FALSE, " + q(user['login'])
+                    + ", 'direct', " + q(key) + ') RETURNING id'
+                )
+                new_id = cur.fetchone()[0]
+                for who in (user['login'], other):
+                    cur.execute(
+                        'INSERT INTO channel_members (channel_id, user_login, active) VALUES ('
+                        + str(new_id) + ', ' + q(who) + ', TRUE) '
+                        'ON CONFLICT (channel_id, user_login) DO UPDATE SET active = TRUE'
+                    )
+                conn.commit()
+    elif action == 'channel_members':
         channel_id = int(body.get('channelId'))
         add = body.get('add') or []
         remove = body.get('remove') or []

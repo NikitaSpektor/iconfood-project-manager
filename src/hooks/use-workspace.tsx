@@ -36,6 +36,7 @@ interface WorkspaceValue {
   createChannel: (name: string, hint: string, members: string[]) => Promise<void>;
   updateChannelMembers: (channelId: string, add: string[], remove: string[]) => Promise<void>;
   renameChannel: (channelId: string, name: string, hint: string) => Promise<void>;
+  openDirect: (login: string) => Promise<string | null>;
 }
 
 const WorkspaceContext = createContext<WorkspaceValue | null>(null);
@@ -225,6 +226,24 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
     [apply],
   );
 
+  const openDirect = useCallback(
+    async (login: string) => {
+      try {
+        const data = await taskAction({ action: 'open_direct', login });
+        apply(data);
+        const list = (data as { channels?: Channel[] }).channels ?? [];
+        const found = list.find(
+          (c) => c.kind === 'direct' && c.members?.some((m) => m.login === login),
+        );
+        return found?.id ?? null;
+      } catch {
+        toast({ title: 'Не удалось открыть диалог', variant: 'destructive' });
+        return null;
+      }
+    },
+    [apply],
+  );
+
   const value = useMemo(
     () => ({
       tasks,
@@ -244,6 +263,7 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
       createChannel,
       updateChannelMembers,
       renameChannel,
+      openDirect,
     }),
     [
       tasks,
@@ -263,6 +283,7 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
       createChannel,
       updateChannelMembers,
       renameChannel,
+      openDirect,
     ],
   );
 

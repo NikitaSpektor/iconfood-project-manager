@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/hooks/use-workspace';
 import NewChannelDialog from './NewChannelDialog';
 import ChannelSettingsDialog from './ChannelSettingsDialog';
+import NewDirectDialog from './NewDirectDialog';
 
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} Б`;
@@ -23,12 +24,16 @@ export default function ChatView() {
   const fileRef = useRef<HTMLInputElement>(null);
   const [creating, setCreating] = useState(false);
   const [settings, setSettings] = useState(false);
+  const [direct, setDirect] = useState(false);
+  const [tab, setTab] = useState<'channel' | 'direct'>('channel');
 
-  const active = channels.find((c) => c.id === activeId) ?? channels[0] ?? null;
+  const visible = channels.filter((c) => (c.kind ?? 'channel') === tab);
+  const active = channels.find((c) => c.id === activeId) ?? visible[0] ?? null;
 
   useEffect(() => {
-    if (!activeId && channels.length > 0) setActiveId(channels[0].id);
-  }, [channels, activeId]);
+    if (visible.length > 0 && !visible.some((c) => c.id === activeId)) setActiveId(visible[0].id);
+    if (visible.length === 0) setActiveId(null);
+  }, [visible, activeId]);
 
   useEffect(() => {
     if (active && active.unread > 0) readChannel(active.id);
@@ -56,13 +61,30 @@ export default function ChatView() {
           'Загружаем переписку...'
         ) : (
           <>
-            Каналов пока нет
-            <Button onClick={() => setCreating(true)} className="rounded-full gap-1.5">
-              <Icon name="Plus" size={15} />
-              Создать канал
-            </Button>
+            {tab === 'direct' ? 'Личных диалогов пока нет' : 'Каналов пока нет'}
+            <div className="flex gap-2">
+              <Button onClick={() => setCreating(true)} className="rounded-full gap-1.5">
+                <Icon name="Plus" size={15} />
+                Создать канал
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setDirect(true)}
+                className="rounded-full gap-1.5 border-line"
+              >
+                <Icon name="MessageSquare" size={15} />
+                Написать коллеге
+              </Button>
+            </div>
             <NewChannelDialog open={creating} onOpenChange={setCreating} />
-      <ChannelSettingsDialog channel={active} open={settings} onOpenChange={setSettings} />
+            <NewDirectDialog
+              open={direct}
+              onOpenChange={setDirect}
+              onPicked={(id) => {
+                setTab('direct');
+                setActiveId(id);
+              }}
+            />
           </>
         )}
       </div>
@@ -72,7 +94,7 @@ export default function ChatView() {
   return (
     <div className="grid gap-3.5 lg:grid-cols-[300px_1fr] flex-1 min-h-0">
       <section className="bento p-4 sm:p-5 flex flex-col min-h-0 animate-fade-in">
-        <div className="flex items-center gap-2 mb-3.5">
+        <div className="flex items-center gap-2 mb-3">
           <div className="eyebrow mr-auto">
             <i className="h-2.5 w-2.5 rounded-[3px] bg-bar" />
             Мессенджер
@@ -81,15 +103,51 @@ export default function ChatView() {
             type="button"
             size="icon"
             variant="outline"
-            onClick={() => setCreating(true)}
+            onClick={() => (tab === 'direct' ? setDirect(true) : setCreating(true))}
             className="rounded-full h-8 w-8 border-line flex-none"
-            aria-label="Новый канал"
+            aria-label={tab === 'direct' ? 'Новый диалог' : 'Новый канал'}
           >
             <Icon name="Plus" size={15} />
           </Button>
         </div>
+
+        <div className="flex gap-1 p-1 rounded-full bg-card border border-line mb-3">
+          {(['channel', 'direct'] as const).map((t) => {
+            const count = channels
+              .filter((c) => (c.kind ?? 'channel') === t)
+              .reduce((sum, c) => sum + c.unread, 0);
+            return (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTab(t)}
+                className={cn(
+                  'flex-1 h-8 rounded-full text-[12px] font-medium transition-colors flex items-center justify-center gap-1.5',
+                  tab === t ? 'bg-primary text-primary-foreground' : 'hover:bg-surface',
+                )}
+              >
+                {t === 'channel' ? 'Каналы' : 'Личные'}
+                {count > 0 && (
+                  <span
+                    className={cn(
+                      'h-[16px] min-w-[16px] rounded-full text-[10px] font-semibold flex items-center justify-center px-1',
+                      tab === t ? 'bg-primary-foreground/25' : 'bg-primary text-primary-foreground',
+                    )}
+                  >
+                    {count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
         <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar space-y-2">
-          {channels.map((c) => (
+          {visible.length === 0 && (
+            <div className="rounded-tile border border-dashed border-line py-8 text-center text-[12px] text-muted-foreground">
+              {tab === 'direct' ? 'Начните переписку с коллегой' : 'Каналов нет'}
+            </div>
+          )}
+          {visible.map((c) => (
             <button
               key={c.id}
               onClick={() => setActiveId(c.id)}
@@ -101,6 +159,11 @@ export default function ChatView() {
               )}
             >
               <div className="flex items-center gap-2">
+                {c.kind === 'direct' && (
+                  <span className="h-6 w-6 rounded-full bg-avatar font-head text-[9px] font-semibold flex items-center justify-center flex-none">
+                    {c.name.split(' ').map((w) => w[0]).join('')}
+                  </span>
+                )}
                 <span className="text-[13px] font-medium truncate">{c.name}</span>
                 {c.unread > 0 && (
                   <span className="ml-auto h-[18px] min-w-[18px] rounded-full bg-primary text-primary-foreground text-[10px] font-semibold flex items-center justify-center px-1">
@@ -121,8 +184,12 @@ export default function ChatView() {
 
       <section className="bento p-0 flex flex-col min-h-0 overflow-hidden animate-fade-in [animation-delay:.1s]">
         <div className="flex items-center gap-3 px-5 py-4 border-b border-line flex-none">
-          <div className="h-9 w-9 rounded-full bg-avatar flex items-center justify-center">
-            <Icon name="Hash" size={16} className="text-foreground/60" />
+          <div className="h-9 w-9 rounded-full bg-avatar flex items-center justify-center flex-none font-head text-[11px] font-semibold">
+            {active.kind === 'direct' ? (
+              active.name.split(' ').map((w) => w[0]).join('')
+            ) : (
+              <Icon name="Hash" size={16} className="text-foreground/60" />
+            )}
           </div>
           <div>
             <div className="font-head font-semibold text-[14px] leading-tight">{active.name}</div>
@@ -133,14 +200,21 @@ export default function ChatView() {
                 : active.hint}
             </div>
           </div>
-          <button
-            type="button"
-            onClick={() => setSettings(true)}
-            className="ml-auto h-9 w-9 rounded-full border border-line flex items-center justify-center hover:bg-surface transition-colors"
-            aria-label="Настройки канала"
-          >
-            <Icon name="Settings2" size={16} />
-          </button>
+          {active.kind === 'direct' ? (
+            <div className="ml-auto flex items-center gap-1.5 text-[12px] text-muted-foreground">
+              <Icon name="Lock" size={13} />
+              только вы двое
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setSettings(true)}
+              className="ml-auto h-9 w-9 rounded-full border border-line flex items-center justify-center hover:bg-surface transition-colors"
+              aria-label="Настройки канала"
+            >
+              <Icon name="Settings2" size={16} />
+            </button>
+          )}
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-5 py-4 space-y-3">
@@ -265,7 +339,7 @@ export default function ChatView() {
             <Input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="Написать в канал…"
+              placeholder={active.kind === 'direct' ? `Написать ${active.name.split(' ')[0]}…` : 'Написать в канал…'}
               className="rounded-full h-10 bg-card border-line"
             />
             <Button
@@ -286,6 +360,14 @@ export default function ChatView() {
       </section>
 
       <NewChannelDialog open={creating} onOpenChange={setCreating} />
+      <NewDirectDialog
+        open={direct}
+        onOpenChange={setDirect}
+        onPicked={(id) => {
+          setTab('direct');
+          setActiveId(id);
+        }}
+      />
       <ChannelSettingsDialog channel={active} open={settings} onOpenChange={setSettings} />
     </div>
   );

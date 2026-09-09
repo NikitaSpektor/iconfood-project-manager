@@ -1,0 +1,4 @@
+ALTER TABLE channels ADD COLUMN IF NOT EXISTS kind VARCHAR(10) NOT NULL DEFAULT 'channel';
+ALTER TABLE channels ADD COLUMN IF NOT EXISTS dm_key VARCHAR(170) NOT NULL DEFAULT '';
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_channels_dm_key ON channels(dm_key) WHERE dm_key <> '';
