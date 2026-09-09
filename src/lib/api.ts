@@ -83,10 +83,10 @@ export async function inviteMember(payload: {
   return request(AUTH_URL, { method: 'POST', body: JSON.stringify({ action: 'invite', ...payload }) });
 }
 
-export async function updateRole(loginName: string, role: string) {
+export async function updateRole(loginName: string, role: string, restaurant?: string) {
   return request(AUTH_URL, {
     method: 'POST',
-    body: JSON.stringify({ action: 'role', login: loginName, role }),
+    body: JSON.stringify({ action: 'role', login: loginName, role, restaurant }),
   });
 }
 

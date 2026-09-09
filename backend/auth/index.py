@@ -130,7 +130,11 @@ def handler(event: dict, context) -> dict:
     if action == 'role':
         login = str(body.get('login', '')).strip().lower()
         role = str(body.get('role', 'staff'))
-        cur.execute('UPDATE users SET role = ' + q(role) + ' WHERE login = ' + q(login))
+        restaurant = str(body.get('restaurant', '')).strip()
+        sets = 'role = ' + q(role)
+        if restaurant:
+            sets += ', restaurant = ' + q(restaurant)
+        cur.execute('UPDATE users SET ' + sets + ' WHERE login = ' + q(login))
         conn.commit()
         cur.close()
         conn.close()

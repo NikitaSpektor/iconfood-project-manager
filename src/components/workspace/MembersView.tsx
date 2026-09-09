@@ -21,6 +21,8 @@ export default function MembersView() {
   const [inviteName, setInviteName] = useState('');
   const [inviteRole, setInviteRole] = useState<Role>('staff');
   const [error, setError] = useState('');
+  const [filterRest, setFilterRest] = useState('all');
+  const [filterRole, setFilterRole] = useState('all');
 
   useEffect(() => {
     fetchMembers()
@@ -32,10 +34,12 @@ export default function MembersView() {
     () =>
       people.filter(
         (m) =>
-          m.name.toLowerCase().includes(query.trim().toLowerCase()) ||
-          m.login.includes(query.trim().toLowerCase()),
+          (m.name.toLowerCase().includes(query.trim().toLowerCase()) ||
+            m.login.includes(query.trim().toLowerCase())) &&
+          (filterRest === 'all' || m.restaurant === filterRest) &&
+          (filterRole === 'all' || m.role === filterRole),
       ),
-    [people, query],
+    [people, query, filterRest, filterRole],
   );
 
   async function sendInvite(e: React.FormEvent) {
@@ -70,10 +74,19 @@ export default function MembersView() {
   }
 
   function changeRole(id: string, login: string, role: Role) {
+    const person = people.find((m) => m.id === id);
     setPeople((p) => p.map((m) => (m.id === id ? { ...m, role } : m)));
-    updateRole(login, role)
+    updateRole(login, role, person?.restaurant)
       .then(() => toast({ title: 'Права обновлены', description: `Новая роль: ${roleLabels[role]}` }))
       .catch(() => toast({ title: 'Не удалось сохранить роль', variant: 'destructive' }));
+  }
+
+  function changeRestaurant(id: string, login: string, restaurant: string) {
+    const person = people.find((m) => m.id === id);
+    setPeople((p) => p.map((m) => (m.id === id ? { ...m, restaurant } : m)));
+    updateRole(login, person?.role ?? 'staff', restaurant)
+      .then(() => toast({ title: 'Ресторан обновлён', description: restaurant }))
+      .catch(() => toast({ title: 'Не удалось сохранить ресторан', variant: 'destructive' }));
   }
 
   return (
@@ -85,9 +98,35 @@ export default function MembersView() {
               Участники холдинга · {people.length}
             </div>
             <div className="text-[12px] text-muted-foreground">
-              У каждого свой логин и пароль, роль задаёт права
+              Показано {list.length} · роль и ресторан меняются на месте
             </div>
           </div>
+          <Select value={filterRest} onValueChange={setFilterRest}>
+            <SelectTrigger className="w-[150px] h-9 rounded-full text-[12px] border-line bg-card">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rounded-2xl">
+              <SelectItem value="all" className="text-[13px]">Все рестораны</SelectItem>
+              {RESTAURANTS.map((r) => (
+                <SelectItem key={r} value={r} className="text-[13px]">
+                  {r}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={filterRole} onValueChange={setFilterRole}>
+            <SelectTrigger className="w-[140px] h-9 rounded-full text-[12px] border-line bg-card">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="rounded-2xl">
+              <SelectItem value="all" className="text-[13px]">Все роли</SelectItem>
+              {(Object.keys(roleLabels) as Role[]).map((r) => (
+                <SelectItem key={r} value={r} className="text-[13px]">
+                  {roleLabels[r]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <div className="relative">
             <Icon
               name="Search"
@@ -98,7 +137,7 @@ export default function MembersView() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Поиск по имени или логину"
-              className="rounded-full h-9 pl-8 w-56 bg-card border-line text-[13px]"
+              className="rounded-full h-9 pl-8 w-52 bg-card border-line text-[13px]"
             />
           </div>
         </div>
@@ -120,12 +159,25 @@ export default function MembersView() {
               </span>
               <div className="min-w-0 mr-auto">
                 <div className="text-[13px] font-medium truncate">{m.name}</div>
-                <div className="text-[11px] text-muted-foreground truncate">
-                  {m.login} · {m.restaurant}
-                </div>
+                <div className="text-[11px] text-muted-foreground truncate">{m.login}</div>
               </div>
+              <Select
+                value={m.restaurant}
+                onValueChange={(v) => changeRestaurant(m.id, m.login, v)}
+              >
+                <SelectTrigger className="w-[140px] h-8 rounded-full text-[12px] border-line flex-none">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl">
+                  {RESTAURANTS.map((r) => (
+                    <SelectItem key={r} value={r} className="text-[13px]">
+                      {r}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Select value={m.role} onValueChange={(v) => changeRole(m.id, m.login, v as Role)}>
-                <SelectTrigger className="w-[150px] h-8 rounded-full text-[12px] border-line">
+                <SelectTrigger className="w-[150px] h-8 rounded-full text-[12px] border-line flex-none">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="rounded-2xl">
