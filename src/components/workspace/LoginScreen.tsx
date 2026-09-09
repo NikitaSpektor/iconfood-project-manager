@@ -48,7 +48,7 @@ export default function LoginScreen({ onEnter }: { onEnter: (user: ApiUser) => v
         <section className="bento p-7 sm:p-10 flex flex-col justify-center animate-fade-in">
           <h1 className="font-head text-[34px] sm:text-[44px] font-bold leading-[1.08] tracking-[-0.025em]">
             Рабочее <span className="text-muted-foreground">пространство</span>{' '}
-            <span className="underline decoration-[3px] underline-offset-[6px]">холдинга</span>.
+            <span>холдинга</span>.
           </h1>
           <div className="h-px bg-line my-6" />
           <p className="text-[15px] leading-relaxed text-muted-foreground max-w-md">
