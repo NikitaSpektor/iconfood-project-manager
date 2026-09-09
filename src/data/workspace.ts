@@ -82,7 +82,20 @@ export interface Channel {
   messages: ChatMessage[];
 }
 
-export const RESTAURANTS = ['Никольская', 'Патриаршие', 'Смоленка', 'Хлебный'];
+export const RESTAURANTS = [
+  'Авиапарк',
+  'Метрополис',
+  'Кунцево Плаза',
+  'Каширская Плаза',
+  'Мега Химки',
+  'Мега Теплый Стан',
+  'Саларис',
+  'Океания',
+  'Павелецкая',
+  'Проспект Мира',
+  'Блэк Маркет',
+  'Афимолл',
+];
 
 export const roleLabels: Record<Role, string> = {
   owner: 'Владелец',
@@ -140,7 +153,7 @@ export const TASKS: Task[] = [
   {
     id: 't1',
     title: 'Согласовать сезонное меню с шефом',
-    restaurant: 'Никольская',
+    restaurant: 'Авиапарк',
     column: 'progress',
     priority: 'critical',
     cover: 'flame',
@@ -163,7 +176,7 @@ export const TASKS: Task[] = [
   {
     id: 't2',
     title: 'Поставщик рыбы: пересчитать закупку',
-    restaurant: 'Никольская',
+    restaurant: 'Авиапарк',
     column: 'progress',
     priority: 'critical',
     cover: 'none',
@@ -182,7 +195,7 @@ export const TASKS: Task[] = [
   {
     id: 't3',
     title: 'Смены официантов на открытие',
-    restaurant: 'Никольская',
+    restaurant: 'Авиапарк',
     column: 'new',
     priority: 'high',
     cover: 'none',
@@ -202,7 +215,7 @@ export const TASKS: Task[] = [
   {
     id: 't4',
     title: 'Вывеска и витрина: макет в печать',
-    restaurant: 'Никольская',
+    restaurant: 'Авиапарк',
     column: 'new',
     priority: 'high',
     cover: 'grape',
@@ -221,7 +234,7 @@ export const TASKS: Task[] = [
   {
     id: 't5',
     title: 'Приёмка кухонного оборудования',
-    restaurant: 'Никольская',
+    restaurant: 'Авиапарк',
     column: 'done',
     priority: 'normal',
     cover: 'none',
@@ -240,7 +253,7 @@ export const TASKS: Task[] = [
   {
     id: 't6',
     title: 'Запуск завтраков на Патриарших',
-    restaurant: 'Патриаршие',
+    restaurant: 'Метрополис',
     column: 'new',
     priority: 'critical',
     cover: 'flame',
@@ -267,7 +280,7 @@ export const TASKS: Task[] = [
   {
     id: 't7',
     title: 'Инвентаризация бара',
-    restaurant: 'Никольская',
+    restaurant: 'Авиапарк',
     column: 'new',
     priority: 'normal',
     cover: 'none',
@@ -283,7 +296,7 @@ export const TASKS: Task[] = [
   {
     id: 't8',
     title: 'Обучение хостес',
-    restaurant: 'Смоленка',
+    restaurant: 'Кунцево Плаза',
     column: 'progress',
     priority: 'high',
     cover: 'ocean',
@@ -306,7 +319,7 @@ export const TASKS: Task[] = [
   {
     id: 't9',
     title: 'Фотосъёмка блюд',
-    restaurant: 'Патриаршие',
+    restaurant: 'Метрополис',
     column: 'progress',
     priority: 'critical',
     cover: 'none',
@@ -324,8 +337,8 @@ export const TASKS: Task[] = [
   },
   {
     id: 't10',
-    title: 'Договор аренды, Хлебный',
-    restaurant: 'Хлебный',
+    title: 'Договор аренды, Каширская Плаза',
+    restaurant: 'Каширская Плаза',
     column: 'done',
     priority: 'normal',
     cover: 'none',
@@ -341,7 +354,7 @@ export const TASKS: Task[] = [
   {
     id: 't11',
     title: 'Отчёт по фудкосту за август',
-    restaurant: 'Смоленка',
+    restaurant: 'Кунцево Плаза',
     column: 'done',
     priority: 'normal',
     cover: 'none',
@@ -360,7 +373,7 @@ export const TASKS: Task[] = [
   {
     id: 't12',
     title: 'Открытие Хлебного: чек-лист дня Х',
-    restaurant: 'Хлебный',
+    restaurant: 'Каширская Плаза',
     column: 'new',
     priority: 'high',
     cover: 'herb',
@@ -430,7 +443,7 @@ export const AI_ANSWERS: { q: string; a: string }[] = [
   },
   {
     q: 'Как холдинг закрывает задачи?',
-    a: 'За 30 дней закрыто 23 задачи из 40, в срок — 78%. Лучше всех Смоленка (91%), хуже — Патриаршие (61%), там основная просадка на подготовке к завтракам.',
+    a: 'За 30 дней закрыто 23 задачи из 40, в срок — 78%. Лучше всех Кунцево Плаза (91%), хуже — Метрополис (61%), там основная просадка на подготовке к завтракам.',
   },
   {
     q: 'Что ставить в приоритет на неделе?',
@@ -446,10 +459,18 @@ export const REPORT_METRICS = [
 ];
 
 export const REPORT_BY_RESTAURANT = [
-  { name: 'Никольская', done: 9, total: 14 },
-  { name: 'Патриаршие', done: 5, total: 11 },
-  { name: 'Смоленка', done: 10, total: 11 },
-  { name: 'Хлебный', done: 3, total: 8 },
+  { name: 'Авиапарк', done: 9, total: 14 },
+  { name: 'Метрополис', done: 5, total: 11 },
+  { name: 'Кунцево Плаза', done: 10, total: 11 },
+  { name: 'Каширская Плаза', done: 3, total: 8 },
+  { name: 'Мега Химки', done: 7, total: 10 },
+  { name: 'Мега Теплый Стан', done: 6, total: 12 },
+  { name: 'Саларис', done: 8, total: 9 },
+  { name: 'Океания', done: 4, total: 9 },
+  { name: 'Павелецкая', done: 11, total: 13 },
+  { name: 'Проспект Мира', done: 5, total: 8 },
+  { name: 'Блэк Маркет', done: 6, total: 7 },
+  { name: 'Афимолл', done: 9, total: 12 },
 ];
 
 export const WEEK_LOAD = [
