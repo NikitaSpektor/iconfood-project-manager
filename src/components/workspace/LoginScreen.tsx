@@ -9,7 +9,7 @@ const facts = [
   { icon: 'Columns3', label: 'Доска, календарь и Гант', hint: 'Одни и те же задачи в трёх видах' },
   { icon: 'MessageSquare', label: 'Мессенджер холдинга', hint: 'Каналы по ресторанам и проектам' },
   { icon: 'Sparkles', label: 'Ассистент', hint: 'Разбирает сроки и загрузку людей' },
-  { icon: 'Users', label: '29 сотрудников', hint: 'Свой логин, пароль и права у каждого' },
+  { icon: 'Users', label: '50 сотрудников', hint: 'Свой логин, пароль и права у каждого' },
 ];
 
 export default function LoginScreen({ onEnter }: { onEnter: (user: ApiUser) => void }) {
