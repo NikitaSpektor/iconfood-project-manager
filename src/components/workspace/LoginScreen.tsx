@@ -1,0 +1,128 @@
+import { useState } from 'react';
+import Icon from '@/components/ui/icon';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { MEMBERS } from '@/data/workspace';
+
+const facts = [
+  { icon: 'Columns3', label: 'Доска, календарь и Гант', hint: 'Одни и те же задачи в трёх видах' },
+  { icon: 'MessageSquare', label: 'Мессенджер холдинга', hint: 'Каналы по ресторанам и проектам' },
+  { icon: 'Sparkles', label: 'Ассистент', hint: 'Разбирает сроки и загрузку людей' },
+  { icon: 'Users', label: '30 учётных записей', hint: 'Свой логин, пароль и права у каждого' },
+];
+
+export default function LoginScreen({ onEnter }: { onEnter: (name: string) => void }) {
+  const [login, setLogin] = useState('alina.vetrova');
+  const [pass, setPass] = useState('');
+  const [show, setShow] = useState(false);
+  const [error, setError] = useState('');
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const member = MEMBERS.find((m) => m.login === login.trim().toLowerCase());
+    if (!member) {
+      setError('Такого логина нет в холдинге');
+      return;
+    }
+    if (pass.trim().length < 4) {
+      setError('Пароль — минимум 4 символа');
+      return;
+    }
+    setError('');
+    onEnter(member.name);
+  }
+
+  return (
+    <div className="min-h-screen bg-background p-4 sm:p-7 flex flex-col">
+      <div className="font-head font-bold text-[13px] tracking-[0.06em] pl-1 mb-4">ICONFOOD</div>
+
+      <div className="grid gap-3.5 lg:grid-cols-[46fr_54fr] flex-1 min-h-0">
+        <section className="bento p-7 sm:p-10 flex flex-col justify-center animate-fade-in">
+          <h1 className="font-head text-[34px] sm:text-[44px] font-bold leading-[1.08] tracking-[-0.025em]">
+            Рабочее <span className="text-muted-foreground">пространство</span>{' '}
+            <span className="underline decoration-[3px] underline-offset-[6px]">холдинга</span>.
+          </h1>
+          <div className="h-px bg-line my-6" />
+          <p className="text-[15px] leading-relaxed text-muted-foreground max-w-md">
+            Четыре ресторана, тридцать человек и одна доска, на которой видно, что горит сегодня,
+            а что подождёт до конца месяца.
+          </p>
+
+          <ul className="mt-8 grid sm:grid-cols-2 gap-3">
+            {facts.map((f) => (
+              <li key={f.label} className="bg-card border border-line rounded-tile p-3.5">
+                <Icon name={f.icon} size={17} className="text-muted-foreground mb-2" />
+                <div className="text-[13px] font-medium">{f.label}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">{f.hint}</div>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="bento p-7 sm:p-10 flex flex-col justify-center animate-fade-in [animation-delay:.12s]">
+          <div className="max-w-sm w-full mx-auto">
+            <div className="eyebrow mb-4">
+              <i className="h-2.5 w-2.5 rounded-[3px] bg-bar" />
+              Вход для сотрудников
+            </div>
+            <h2 className="font-head text-2xl font-bold tracking-tight">Здравствуйте</h2>
+            <p className="text-[13px] text-muted-foreground mt-1.5">
+              Логин выдаёт управляющий. Для демонстрации подойдёт любой пароль от 4 символов.
+            </p>
+
+            <form onSubmit={submit} className="mt-6 space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="lg">Логин</Label>
+                <Input
+                  id="lg"
+                  value={login}
+                  onChange={(e) => setLogin(e.target.value)}
+                  placeholder="alina.vetrova"
+                  className="rounded-xl h-11 bg-card border-line"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="pw">Пароль</Label>
+                <div className="relative">
+                  <Input
+                    id="pw"
+                    type={show ? 'text' : 'password'}
+                    value={pass}
+                    onChange={(e) => setPass(e.target.value)}
+                    placeholder="••••••••"
+                    className="rounded-xl h-11 bg-card border-line pr-11"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShow((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    aria-label="Показать пароль"
+                  >
+                    <Icon name={show ? 'EyeOff' : 'Eye'} size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {error && (
+                <p className="text-[13px] text-primary flex items-center gap-1.5">
+                  <Icon name="TriangleAlert" size={14} />
+                  {error}
+                </p>
+              )}
+
+              <Button type="submit" className="w-full rounded-full h-11 gap-1.5">
+                Войти в систему
+                <Icon name="ArrowRight" size={16} />
+              </Button>
+            </form>
+
+            <div className="mt-6 pt-5 border-t border-line text-[12px] text-muted-foreground">
+              Нет доступа? Управляющий добавит вас по рабочей почте — приглашение придёт письмом.
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
