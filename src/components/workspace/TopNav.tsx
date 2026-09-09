@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Icon from '@/components/ui/icon';
+import NotificationsBell from './NotificationsBell';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -36,6 +37,7 @@ export const NAV: { id: ViewId; label: string; icon: string; dot?: boolean }[] =
 ];
 
 interface TopNavProps {
+  onOpenTask: (taskId: string) => void;
   view: ViewId;
   onChange: (v: ViewId) => void;
   onLogout: () => void;
@@ -43,7 +45,7 @@ interface TopNavProps {
   userRole: string;
 }
 
-export default function TopNav({ view, onChange, onLogout, userName, userRole }: TopNavProps) {
+export default function TopNav({ view, onChange, onLogout, userName, userRole, onOpenTask }: TopNavProps) {
   const [open, setOpen] = useState(false);
   const primary = NAV.slice(0, 5);
   const rest = NAV.slice(5);
@@ -102,6 +104,7 @@ export default function TopNav({ view, onChange, onLogout, userName, userRole }:
         </nav>
 
         <div className="flex items-center gap-2">
+          <NotificationsBell onOpenTask={onOpenTask} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex items-center gap-2 rounded-full border border-line bg-card px-2.5 py-1.5 text-[12px] font-medium shadow-pill hover:bg-surface transition-colors">

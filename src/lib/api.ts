@@ -91,11 +91,9 @@ export async function updateRole(loginName: string, role: string) {
 }
 
 export async function fetchTasks() {
-  const data = await request(TASKS_URL);
-  return data.tasks;
+  return request(TASKS_URL);
 }
 
 export async function taskAction(payload: Record<string, unknown>) {
-  const data = await request(TASKS_URL, { method: 'POST', body: JSON.stringify(payload) });
-  return data.tasks;
+  return request(TASKS_URL, { method: 'POST', body: JSON.stringify(payload) });
 }

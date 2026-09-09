@@ -35,6 +35,44 @@ def current_user(cur, event):
     return {'login': row[0], 'name': row[1]} if row else None
 
 
+def notify_assignee(cur, task_id, actor, kind, text):
+    cur.execute('SELECT title, assignee FROM tasks WHERE id = ' + str(task_id))
+    row = cur.fetchone()
+    if not row:
+        return
+    title, assignee = row
+    if not assignee or assignee == actor:
+        return
+    cur.execute('SELECT login FROM users WHERE name = ' + q(assignee))
+    target = cur.fetchone()
+    if not target:
+        return
+    cur.execute(
+        'INSERT INTO notifications (recipient_login, task_id, task_title, kind, actor, text) VALUES ('
+        + q(target[0]) + ', ' + str(task_id) + ', ' + q(title) + ', ' + q(kind) + ', ' + q(actor) + ', ' + q(text[:300]) + ')'
+    )
+
+
+def load_notifications(cur, login):
+    cur.execute(
+        'SELECT id, task_id, task_title, kind, actor, text, is_read, created_at FROM notifications '
+        'WHERE recipient_login = ' + q(login) + ' ORDER BY id DESC LIMIT 30'
+    )
+    return [
+        {
+            'id': str(r[0]),
+            'taskId': str(r[1]),
+            'taskTitle': r[2],
+            'kind': r[3],
+            'actor': r[4],
+            'text': r[5],
+            'read': r[6],
+            'createdAt': r[7].isoformat(),
+        }
+        for r in cur.fetchall()
+    ]
+
+
 def load_tasks(cur, login):
     cur.execute(
         'SELECT id, title, restaurant, column_id, priority, cover, deadline, assignee, watchers, '
@@ -112,14 +150,22 @@ def handler(event: dict, context) -> dict:
 
     if method == 'GET':
         tasks = load_tasks(cur, user['login'])
+        notifications = load_notifications(cur, user['login'])
         cur.close()
         conn.close()
-        return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'tasks': tasks})}
+        return {
+            'statusCode': 200,
+            'headers': CORS,
+            'body': json.dumps({'tasks': tasks, 'notifications': notifications}),
+        }
 
     body = json.loads(event.get('body') or '{}')
     action = body.get('action', '')
 
-    if action == 'move':
+    if action == 'read_notifications':
+        cur.execute('UPDATE notifications SET is_read = TRUE WHERE recipient_login = ' + q(user['login']))
+        conn.commit()
+    elif action == 'move':
         cur.execute('UPDATE tasks SET column_id = ' + q(body.get('column')) + ' WHERE id = ' + str(int(body.get('taskId'))))
         conn.commit()
     elif action == 'toggle':
@@ -147,6 +193,7 @@ def handler(event: dict, context) -> dict:
             + str(int(body.get('taskId'))) + ', ' + q(name) + ', ' + q(url) + ', ' + q(mime) + ', '
             + str(len(content)) + ', ' + q(user['name']) + ')'
         )
+        notify_assignee(cur, int(body.get('taskId')), user['name'], 'file', name)
         conn.commit()
     elif action == 'detach':
         cur.execute('UPDATE attachments SET archived = TRUE WHERE id = ' + str(int(body.get('fileId'))))
@@ -158,6 +205,7 @@ def handler(event: dict, context) -> dict:
                 'INSERT INTO comments (task_id, author, author_login, text) VALUES ('
                 + str(int(body.get('taskId'))) + ', ' + q(user['name']) + ', ' + q(user['login']) + ', ' + q(text) + ')'
             )
+            notify_assignee(cur, int(body.get('taskId')), user['name'], 'comment', text)
             conn.commit()
     elif action == 'create':
         owner = user['login'] if body.get('personal') else ''
@@ -179,6 +227,11 @@ def handler(event: dict, context) -> dict:
         conn.commit()
 
     tasks = load_tasks(cur, user['login'])
+    notifications = load_notifications(cur, user['login'])
     cur.close()
     conn.close()
-    return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'tasks': tasks})}
+    return {
+        'statusCode': 200,
+        'headers': CORS,
+        'body': json.dumps({'tasks': tasks, 'notifications': notifications}),
+    }
