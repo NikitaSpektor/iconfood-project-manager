@@ -77,17 +77,29 @@ def load_channels(cur, user):
     cur.execute('SELECT id, name, hint FROM channels WHERE archived = FALSE ORDER BY position, id')
     rows = cur.fetchall()
 
-    cur.execute('SELECT channel_id, id, author, author_login, text, created_at FROM messages ORDER BY id')
+    cur.execute(
+        'SELECT channel_id, id, author, author_login, text, created_at, file_url, file_name, '
+        'file_mime, file_size FROM messages ORDER BY id'
+    )
     grouped = {}
-    for channel_id, mid, author, author_login, text, created in cur.fetchall():
-        grouped.setdefault(channel_id, []).append({
+    for row in cur.fetchall():
+        channel_id, mid, author, author_login, text, created, f_url, f_name, f_mime, f_size = row
+        message = {
             'id': str(mid),
             'author': author,
             'text': text,
             'time': created.strftime('%H:%M'),
             'createdAt': created.isoformat(),
             'own': author_login == user['login'],
-        })
+        }
+        if f_url:
+            message['file'] = {
+                'url': f_url,
+                'name': f_name,
+                'mime': f_mime,
+                'size': f_size,
+            }
+        grouped.setdefault(channel_id, []).append(message)
 
     cur.execute('SELECT channel_id, last_read_id FROM channel_reads WHERE user_login = ' + q(user['login']))
     reads = {r[0]: r[1] for r in cur.fetchall()}
@@ -198,11 +210,33 @@ def handler(event: dict, context) -> dict:
 
     if action == 'send_message':
         text = str(body.get('text', '')).strip()
-        if text:
+        raw = str(body.get('data', ''))
+        f_url = ''
+        f_name = str(body.get('name', ''))[:200]
+        f_mime = str(body.get('mime', ''))[:120]
+        f_size = 0
+        if raw:
+            if ',' in raw and raw.strip().startswith('data:'):
+                raw = raw.split(',', 1)[1]
+            content = base64.b64decode(raw)
+            f_size = len(content)
+            safe = re.sub(r'[^A-Za-z0-9._-]', '_', f_name) or 'file'
+            key = f"chat/{int(body.get('channelId'))}/{uuid.uuid4().hex[:10]}_{safe}"
+            s3 = boto3.client(
+                's3',
+                endpoint_url='https://bucket.poehali.dev',
+                aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
+                aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],
+            )
+            s3.put_object(Bucket='files', Key=key, Body=content, ContentType=f_mime or 'application/octet-stream')
+            f_url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
+        if text or f_url:
             cur.execute(
-                'INSERT INTO messages (channel_id, author, author_login, text) VALUES ('
+                'INSERT INTO messages (channel_id, author, author_login, text, file_url, file_name, '
+                'file_mime, file_size) VALUES ('
                 + str(int(body.get('channelId'))) + ', ' + q(user['name']) + ', '
-                + q(user['login']) + ', ' + q(text[:2000]) + ')'
+                + q(user['login']) + ', ' + q(text[:2000]) + ', ' + q(f_url) + ', '
+                + q(f_name) + ', ' + q(f_mime) + ', ' + str(f_size) + ')'
             )
             conn.commit()
     elif action == 'read_channel':

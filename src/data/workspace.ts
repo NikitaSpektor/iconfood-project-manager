@@ -63,6 +63,12 @@ export interface ChatMessage {
   text: string;
   time: string;
   own?: boolean;
+  file?: {
+    url: string;
+    name: string;
+    mime: string;
+    size: number;
+  };
 }
 
 export interface Channel {

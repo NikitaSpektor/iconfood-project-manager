@@ -31,7 +31,7 @@ interface WorkspaceValue {
   addComment: (taskId: string, text: string) => Promise<void>;
   attachFile: (taskId: string, file: File) => Promise<void>;
   removeFile: (taskId: string, fileId: string) => Promise<void>;
-  sendMessage: (channelId: string, text: string) => void;
+  sendMessage: (channelId: string, text: string, file?: File) => Promise<void>;
   readChannel: (channelId: string) => void;
 }
 
@@ -151,10 +151,31 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
   }, [apply]);
 
   const sendMessage = useCallback(
-    (channelId: string, text: string) => {
-      taskAction({ action: 'send_message', channelId, text })
-        .then(apply)
-        .catch(() => toast({ title: 'Сообщение не отправлено', variant: 'destructive' }));
+    async (channelId: string, text: string, file?: File) => {
+      try {
+        let payload: Record<string, unknown> = { action: 'send_message', channelId, text };
+        if (file) {
+          if (file.size > 8 * 1024 * 1024) {
+            toast({ title: 'Файл больше 8 МБ', variant: 'destructive' });
+            return;
+          }
+          const data = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '');
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+          });
+          payload = {
+            ...payload,
+            data,
+            name: file.name,
+            mime: file.type || 'application/octet-stream',
+          };
+        }
+        apply(await taskAction(payload));
+      } catch {
+        toast({ title: 'Сообщение не отправлено', variant: 'destructive' });
+      }
     },
     [apply],
   );

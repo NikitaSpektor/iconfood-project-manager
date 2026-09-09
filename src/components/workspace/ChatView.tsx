@@ -5,11 +5,20 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/hooks/use-workspace';
 
+function formatSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} Б`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} КБ`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} МБ`;
+}
+
 export default function ChatView() {
   const { channels, sendMessage, readChannel, loading } = useWorkspace();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
+  const [pending, setPending] = useState<File | null>(null);
+  const [sending, setSending] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const active = channels.find((c) => c.id === activeId) ?? channels[0] ?? null;
 
@@ -25,11 +34,15 @@ export default function ChatView() {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [active?.messages.length, activeId]);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!draft.trim() || !active) return;
-    sendMessage(active.id, draft.trim());
+    if ((!draft.trim() && !pending) || !active) return;
+    setSending(true);
+    await sendMessage(active.id, draft.trim(), pending ?? undefined);
     setDraft('');
+    setPending(null);
+    setSending(false);
+    if (fileRef.current) fileRef.current.value = '';
   }
 
   if (!active) {
@@ -68,7 +81,10 @@ export default function ChatView() {
                 )}
               </div>
               <div className="text-[11px] text-muted-foreground mt-1 truncate">
-                {c.messages[c.messages.length - 1]?.text ?? c.hint}
+                {c.messages[c.messages.length - 1]?.text ||
+                  (c.messages[c.messages.length - 1]?.file
+                    ? `Файл: ${c.messages[c.messages.length - 1]?.file?.name}`
+                    : c.hint)}
               </div>
             </button>
           ))}
@@ -114,7 +130,44 @@ export default function ChatView() {
                     {m.author}
                   </div>
                 )}
-                <div className="text-[13px] leading-snug">{m.text}</div>
+                {m.file && m.file.mime.startsWith('image/') && (
+                  <a href={m.file.url} target="_blank" rel="noreferrer" className="block mb-1.5">
+                    <img
+                      src={m.file.url}
+                      alt={m.file.name}
+                      className="rounded-xl max-h-52 w-auto object-cover border border-line/40"
+                    />
+                  </a>
+                )}
+                {m.file && !m.file.mime.startsWith('image/') && (
+                  <a
+                    href={m.file.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    download={m.file.name}
+                    className={cn(
+                      'flex items-center gap-2 rounded-xl px-2.5 py-2 mb-1.5 border transition-colors',
+                      m.own
+                        ? 'bg-primary-foreground/10 border-primary-foreground/20 hover:bg-primary-foreground/20'
+                        : 'bg-surface border-line hover:bg-background',
+                    )}
+                  >
+                    <Icon name="Paperclip" size={14} className="flex-none" />
+                    <span className="min-w-0">
+                      <span className="block text-[12px] font-medium truncate">{m.file.name}</span>
+                      <span
+                        className={cn(
+                          'block text-[10px]',
+                          m.own ? 'text-primary-foreground/70' : 'text-muted-foreground',
+                        )}
+                      >
+                        {formatSize(m.file.size)}
+                      </span>
+                    </span>
+                    <Icon name="Download" size={14} className="ml-auto flex-none" />
+                  </a>
+                )}
+                {m.text && <div className="text-[13px] leading-snug">{m.text}</div>}
                 <div
                   className={cn(
                     'text-[10px] mt-1',
@@ -129,16 +182,69 @@ export default function ChatView() {
           <div ref={endRef} />
         </div>
 
-        <form onSubmit={submit} className="flex items-center gap-2 px-5 py-4 border-t border-line flex-none">
-          <Input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Написать в канал…"
-            className="rounded-full h-10 bg-card border-line"
-          />
-          <Button type="submit" size="icon" className="rounded-full h-10 w-10 flex-none">
-            <Icon name="Send" size={16} />
-          </Button>
+        <form onSubmit={submit} className="px-5 py-4 border-t border-line flex-none">
+          {pending && (
+            <div className="flex items-center gap-2 mb-2.5 rounded-xl bg-surface border border-line px-3 py-2">
+              <Icon
+                name={pending.type.startsWith('image/') ? 'Image' : 'Paperclip'}
+                size={14}
+                className="text-muted-foreground flex-none"
+              />
+              <span className="text-[12px] truncate mr-auto">{pending.name}</span>
+              <span className="text-[11px] text-muted-foreground whitespace-nowrap">
+                {formatSize(pending.size)}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setPending(null);
+                  if (fileRef.current) fileRef.current.value = '';
+                }}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Убрать файл"
+              >
+                <Icon name="X" size={14} />
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <input
+              ref={fileRef}
+              type="file"
+              className="hidden"
+              onChange={(e) => setPending(e.target.files?.[0] ?? null)}
+            />
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              onClick={() => fileRef.current?.click()}
+              className="rounded-full h-10 w-10 flex-none border-line"
+              aria-label="Прикрепить файл"
+            >
+              <Icon name="Paperclip" size={16} />
+            </Button>
+            <Input
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="Написать в канал…"
+              className="rounded-full h-10 bg-card border-line"
+            />
+            <Button
+              type="submit"
+              size="icon"
+              disabled={sending || (!draft.trim() && !pending)}
+              className="rounded-full h-10 w-10 flex-none"
+              aria-label="Отправить"
+            >
+              <Icon
+                name={sending ? 'LoaderCircle' : 'Send'}
+                size={16}
+                className={sending ? 'animate-spin' : ''}
+              />
+            </Button>
+          </div>
         </form>
       </section>
     </div>
