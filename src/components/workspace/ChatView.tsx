@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/hooks/use-workspace';
 import NewChannelDialog from './NewChannelDialog';
+import ChannelSettingsDialog from './ChannelSettingsDialog';
 
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} Б`;
@@ -21,6 +22,7 @@ export default function ChatView() {
   const endRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [creating, setCreating] = useState(false);
+  const [settings, setSettings] = useState(false);
 
   const active = channels.find((c) => c.id === activeId) ?? channels[0] ?? null;
 
@@ -60,6 +62,7 @@ export default function ChatView() {
               Создать канал
             </Button>
             <NewChannelDialog open={creating} onOpenChange={setCreating} />
+      <ChannelSettingsDialog channel={active} open={settings} onOpenChange={setSettings} />
           </>
         )}
       </div>
@@ -125,15 +128,19 @@ export default function ChatView() {
             <div className="font-head font-semibold text-[14px] leading-tight">{active.name}</div>
             <div className="text-[12px] text-muted-foreground">
               {active.open === false && active.members?.length
-                ? active.members.slice(0, 3).join(', ') +
+                ? active.members.slice(0, 3).map((m) => m.name).join(', ') +
                   (active.members.length > 3 ? ` и ещё ${active.members.length - 3}` : '')
                 : active.hint}
             </div>
           </div>
-          <div className="ml-auto flex items-center gap-1.5 text-[12px] text-muted-foreground">
-            <i className="h-1.5 w-1.5 rounded-full bg-flag-done" />
-            в сети
-          </div>
+          <button
+            type="button"
+            onClick={() => setSettings(true)}
+            className="ml-auto h-9 w-9 rounded-full border border-line flex items-center justify-center hover:bg-surface transition-colors"
+            aria-label="Настройки канала"
+          >
+            <Icon name="Settings2" size={16} />
+          </button>
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-5 py-4 space-y-3">
@@ -279,6 +286,7 @@ export default function ChatView() {
       </section>
 
       <NewChannelDialog open={creating} onOpenChange={setCreating} />
+      <ChannelSettingsDialog channel={active} open={settings} onOpenChange={setSettings} />
     </div>
   );
 }

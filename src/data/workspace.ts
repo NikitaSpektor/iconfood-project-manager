@@ -75,7 +75,8 @@ export interface Channel {
   id: string;
   name: string;
   open?: boolean;
-  members?: string[];
+  createdBy?: string;
+  members?: { name: string; login: string }[];
   hint: string;
   unread: number;
   messages: ChatMessage[];

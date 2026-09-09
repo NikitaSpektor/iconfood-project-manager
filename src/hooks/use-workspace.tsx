@@ -34,6 +34,8 @@ interface WorkspaceValue {
   sendMessage: (channelId: string, text: string, file?: File) => Promise<void>;
   readChannel: (channelId: string) => void;
   createChannel: (name: string, hint: string, members: string[]) => Promise<void>;
+  updateChannelMembers: (channelId: string, add: string[], remove: string[]) => Promise<void>;
+  renameChannel: (channelId: string, name: string, hint: string) => Promise<void>;
 }
 
 const WorkspaceContext = createContext<WorkspaceValue | null>(null);
@@ -201,6 +203,28 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
     [apply],
   );
 
+  const updateChannelMembers = useCallback(
+    async (channelId: string, add: string[], remove: string[]) => {
+      try {
+        apply(await taskAction({ action: 'channel_members', channelId, add, remove }));
+      } catch {
+        toast({ title: 'Не удалось изменить состав канала', variant: 'destructive' });
+      }
+    },
+    [apply],
+  );
+
+  const renameChannel = useCallback(
+    async (channelId: string, name: string, hint: string) => {
+      try {
+        apply(await taskAction({ action: 'rename_channel', channelId, name, hint }));
+      } catch {
+        toast({ title: 'Не удалось сохранить канал', variant: 'destructive' });
+      }
+    },
+    [apply],
+  );
+
   const value = useMemo(
     () => ({
       tasks,
@@ -218,6 +242,8 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
       sendMessage,
       readChannel,
       createChannel,
+      updateChannelMembers,
+      renameChannel,
     }),
     [
       tasks,
@@ -235,6 +261,8 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
       sendMessage,
       readChannel,
       createChannel,
+      updateChannelMembers,
+      renameChannel,
     ],
   );
 

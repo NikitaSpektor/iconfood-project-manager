@@ -75,19 +75,19 @@ def load_notifications(cur, login):
 
 def load_channels(cur, user):
     cur.execute(
-        'SELECT c.id, c.name, c.hint, c.is_open FROM channels c WHERE c.archived = FALSE AND '
+        'SELECT c.id, c.name, c.hint, c.is_open, c.created_by FROM channels c WHERE c.archived = FALSE AND '
         '(c.is_open = TRUE OR EXISTS (SELECT 1 FROM channel_members m WHERE m.channel_id = c.id '
-        'AND m.user_login = ' + q(user['login']) + ')) ORDER BY c.position, c.id'
+        'AND m.active = TRUE AND m.user_login = ' + q(user['login']) + ')) ORDER BY c.position, c.id'
     )
     rows = cur.fetchall()
 
     cur.execute(
-        'SELECT m.channel_id, u.name FROM channel_members m JOIN users u ON u.login = m.user_login '
-        'ORDER BY u.id'
+        'SELECT m.channel_id, u.name, u.login FROM channel_members m JOIN users u ON u.login = m.user_login '
+        'WHERE m.active = TRUE ORDER BY u.id'
     )
     members = {}
-    for cid, name in cur.fetchall():
-        members.setdefault(cid, []).append(name)
+    for cid, name, login_name in cur.fetchall():
+        members.setdefault(cid, []).append({'name': name, 'login': login_name})
 
     cur.execute(
         'SELECT channel_id, id, author, author_login, text, created_at, file_url, file_name, '
@@ -117,7 +117,7 @@ def load_channels(cur, user):
     reads = {r[0]: r[1] for r in cur.fetchall()}
 
     channels = []
-    for cid, name, hint, is_open in rows:
+    for cid, name, hint, is_open, created_by in rows:
         msgs = grouped.get(cid, [])
         last_read = reads.get(cid, 0)
         people = members.get(cid, [])
@@ -126,6 +126,7 @@ def load_channels(cur, user):
             'name': name,
             'hint': hint or ('Все сотрудники' if is_open else f'{len(people)} участников'),
             'open': is_open,
+            'createdBy': created_by,
             'members': people,
             'unread': sum(1 for m in msgs if int(m['id']) > last_read and not m['own']),
             'messages': msgs,
@@ -223,7 +224,35 @@ def handler(event: dict, context) -> dict:
     body = json.loads(event.get('body') or '{}')
     action = body.get('action', '')
 
-    if action == 'create_channel':
+    if action == 'channel_members':
+        channel_id = int(body.get('channelId'))
+        add = body.get('add') or []
+        remove = body.get('remove') or []
+        for login_name in add:
+            cur.execute(
+                'INSERT INTO channel_members (channel_id, user_login, active) VALUES ('
+                + str(channel_id) + ', ' + q(str(login_name)) + ', TRUE) '
+                'ON CONFLICT (channel_id, user_login) DO UPDATE SET active = TRUE'
+            )
+        for login_name in remove:
+            cur.execute(
+                'UPDATE channel_members SET active = FALSE WHERE channel_id = ' + str(channel_id)
+                + ' AND user_login = ' + q(str(login_name))
+            )
+        if add:
+            cur.execute('UPDATE channels SET is_open = FALSE WHERE id = ' + str(channel_id))
+        conn.commit()
+    elif action == 'rename_channel':
+        channel_id = int(body.get('channelId'))
+        name = str(body.get('name', '')).strip()[:160]
+        hint = str(body.get('hint', '')).strip()[:160]
+        if name:
+            cur.execute(
+                'UPDATE channels SET name = ' + q(name) + ', hint = ' + q(hint)
+                + ' WHERE id = ' + str(channel_id)
+            )
+            conn.commit()
+    elif action == 'create_channel':
         name = str(body.get('name', '')).strip()[:160]
         hint = str(body.get('hint', '')).strip()[:160]
         people = body.get('members') or []
