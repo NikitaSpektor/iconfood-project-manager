@@ -54,6 +54,7 @@ export interface Member {
   email: string;
   role: Role;
   restaurant: string;
+  position?: string;
   online: boolean;
 }
 
@@ -83,6 +84,7 @@ export interface Channel {
 }
 
 export const RESTAURANTS = [
+  'Управляющая компания',
   'Авиапарк',
   'Метрополис',
   'Кунцево Плаза',

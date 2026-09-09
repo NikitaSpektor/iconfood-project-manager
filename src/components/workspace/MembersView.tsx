@@ -81,6 +81,15 @@ export default function MembersView() {
       .catch(() => toast({ title: 'Не удалось сохранить роль', variant: 'destructive' }));
   }
 
+  function changePosition(id: string, login: string, position: string) {
+    const person = people.find((m) => m.id === id);
+    if (!person || person.position === position) return;
+    setPeople((p) => p.map((m) => (m.id === id ? { ...m, position } : m)));
+    updateRole(login, person.role, person.restaurant, position)
+      .then(() => toast({ title: 'Должность сохранена', description: position || '—' }))
+      .catch(() => toast({ title: 'Не удалось сохранить должность', variant: 'destructive' }));
+  }
+
   function changeRestaurant(id: string, login: string, restaurant: string) {
     const person = people.find((m) => m.id === id);
     setPeople((p) => p.map((m) => (m.id === id ? { ...m, restaurant } : m)));
@@ -159,7 +168,12 @@ export default function MembersView() {
               </span>
               <div className="min-w-0 mr-auto">
                 <div className="text-[13px] font-medium truncate">{m.name}</div>
-                <div className="text-[11px] text-muted-foreground truncate">{m.login}</div>
+                <input
+                  defaultValue={m.position ?? ''}
+                  onBlur={(e) => changePosition(m.id, m.login, e.target.value.trim())}
+                  placeholder="Должность"
+                  className="w-full bg-transparent text-[11px] text-muted-foreground outline-none focus:text-foreground truncate"
+                />
               </div>
               <Select
                 value={m.restaurant}

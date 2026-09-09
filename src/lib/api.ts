@@ -83,11 +83,15 @@ export async function inviteMember(payload: {
   return request(AUTH_URL, { method: 'POST', body: JSON.stringify({ action: 'invite', ...payload }) });
 }
 
-export async function updateRole(loginName: string, role: string, restaurant?: string) {
-  return request(AUTH_URL, {
-    method: 'POST',
-    body: JSON.stringify({ action: 'role', login: loginName, role, restaurant }),
-  });
+export async function updateRole(
+  loginName: string,
+  role: string,
+  restaurant?: string,
+  position?: string,
+) {
+  const payload: Record<string, unknown> = { action: 'role', login: loginName, role, restaurant };
+  if (position !== undefined) payload.position = position;
+  return request(AUTH_URL, { method: 'POST', body: JSON.stringify(payload) });
 }
 
 export async function fetchTasks() {

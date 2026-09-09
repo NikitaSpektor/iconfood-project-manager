@@ -35,9 +35,10 @@ def handler(event: dict, context) -> dict:
     if method == 'GET':
         action = (event.get('queryStringParameters') or {}).get('action', 'me')
         if action == 'members':
-            cur.execute('SELECT id, name, login, email, role, restaurant FROM users ORDER BY id')
+            cur.execute('SELECT id, name, login, email, role, restaurant, position FROM users ORDER BY id')
             members = [
-                {'id': str(r[0]), 'name': r[1], 'login': r[2], 'email': r[3], 'role': r[4], 'restaurant': r[5], 'online': r[0] % 3 != 2}
+                {'id': str(r[0]), 'name': r[1], 'login': r[2], 'email': r[3], 'role': r[4],
+                 'restaurant': r[5], 'position': r[6], 'online': r[0] % 3 != 2}
                 for r in cur.fetchall()
             ]
             cur.close()
@@ -50,7 +51,7 @@ def handler(event: dict, context) -> dict:
             conn.close()
             return {'statusCode': 401, 'headers': CORS, 'body': json.dumps({'error': 'no token'})}
         cur.execute(
-            'SELECT u.name, u.login, u.role, u.restaurant, u.email FROM sessions s '
+            'SELECT u.name, u.login, u.role, u.restaurant, u.email, u.position FROM sessions s '
             'JOIN users u ON u.id = s.user_id WHERE s.token = ' + q(token) + ' AND s.expires_at > NOW()'
         )
         row = cur.fetchone()
@@ -61,7 +62,7 @@ def handler(event: dict, context) -> dict:
         return {
             'statusCode': 200,
             'headers': CORS,
-            'body': json.dumps({'user': {'name': row[0], 'login': row[1], 'role': row[2], 'restaurant': row[3], 'email': row[4]}}),
+            'body': json.dumps({'user': {'name': row[0], 'login': row[1], 'role': row[2], 'restaurant': row[3], 'email': row[4], 'position': row[5]}}),
         }
 
     body = json.loads(event.get('body') or '{}')
@@ -74,7 +75,7 @@ def handler(event: dict, context) -> dict:
             cur.close()
             conn.close()
             return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'error': 'Введите логин и пароль'})}
-        cur.execute('SELECT id, name, login, role, restaurant, email, password_hash FROM users WHERE login = ' + q(login))
+        cur.execute('SELECT id, name, login, role, restaurant, email, password_hash, position FROM users WHERE login = ' + q(login))
         row = cur.fetchone()
         if not row or row[6] != hash_password(login, password):
             cur.close()
@@ -91,7 +92,7 @@ def handler(event: dict, context) -> dict:
         return {
             'statusCode': 200,
             'headers': CORS,
-            'body': json.dumps({'token': token, 'user': {'name': row[1], 'login': row[2], 'role': row[3], 'restaurant': row[4], 'email': row[5]}}),
+            'body': json.dumps({'token': token, 'user': {'name': row[1], 'login': row[2], 'role': row[3], 'restaurant': row[4], 'email': row[5], 'position': row[7]}}),
         }
 
     if action == 'logout':
@@ -134,6 +135,8 @@ def handler(event: dict, context) -> dict:
         sets = 'role = ' + q(role)
         if restaurant:
             sets += ', restaurant = ' + q(restaurant)
+        if 'position' in body:
+            sets += ', position = ' + q(str(body.get('position', ''))[:120])
         cur.execute('UPDATE users SET ' + sets + ' WHERE login = ' + q(login))
         conn.commit()
         cur.close()
