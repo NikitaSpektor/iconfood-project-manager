@@ -33,6 +33,7 @@ interface WorkspaceValue {
   removeFile: (taskId: string, fileId: string) => Promise<void>;
   sendMessage: (channelId: string, text: string, file?: File) => Promise<void>;
   readChannel: (channelId: string) => void;
+  createChannel: (name: string, hint: string, members: string[]) => Promise<void>;
 }
 
 const WorkspaceContext = createContext<WorkspaceValue | null>(null);
@@ -188,6 +189,18 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
     [],
   );
 
+  const createChannel = useCallback(
+    async (name: string, hint: string, members: string[]) => {
+      try {
+        apply(await taskAction({ action: 'create_channel', name, hint, members }));
+        toast({ title: 'Канал создан', description: name });
+      } catch {
+        toast({ title: 'Не удалось создать канал', variant: 'destructive' });
+      }
+    },
+    [apply],
+  );
+
   const value = useMemo(
     () => ({
       tasks,
@@ -204,6 +217,7 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
       removeFile,
       sendMessage,
       readChannel,
+      createChannel,
     }),
     [
       tasks,
@@ -220,6 +234,7 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
       removeFile,
       sendMessage,
       readChannel,
+      createChannel,
     ],
   );
 

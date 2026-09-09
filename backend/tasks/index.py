@@ -74,8 +74,20 @@ def load_notifications(cur, login):
 
 
 def load_channels(cur, user):
-    cur.execute('SELECT id, name, hint FROM channels WHERE archived = FALSE ORDER BY position, id')
+    cur.execute(
+        'SELECT c.id, c.name, c.hint, c.is_open FROM channels c WHERE c.archived = FALSE AND '
+        '(c.is_open = TRUE OR EXISTS (SELECT 1 FROM channel_members m WHERE m.channel_id = c.id '
+        'AND m.user_login = ' + q(user['login']) + ')) ORDER BY c.position, c.id'
+    )
     rows = cur.fetchall()
+
+    cur.execute(
+        'SELECT m.channel_id, u.name FROM channel_members m JOIN users u ON u.login = m.user_login '
+        'ORDER BY u.id'
+    )
+    members = {}
+    for cid, name in cur.fetchall():
+        members.setdefault(cid, []).append(name)
 
     cur.execute(
         'SELECT channel_id, id, author, author_login, text, created_at, file_url, file_name, '
@@ -105,13 +117,16 @@ def load_channels(cur, user):
     reads = {r[0]: r[1] for r in cur.fetchall()}
 
     channels = []
-    for cid, name, hint in rows:
+    for cid, name, hint, is_open in rows:
         msgs = grouped.get(cid, [])
         last_read = reads.get(cid, 0)
+        people = members.get(cid, [])
         channels.append({
             'id': str(cid),
             'name': name,
-            'hint': hint,
+            'hint': hint or ('Все сотрудники' if is_open else f'{len(people)} участников'),
+            'open': is_open,
+            'members': people,
             'unread': sum(1 for m in msgs if int(m['id']) > last_read and not m['own']),
             'messages': msgs,
         })
@@ -208,7 +223,26 @@ def handler(event: dict, context) -> dict:
     body = json.loads(event.get('body') or '{}')
     action = body.get('action', '')
 
-    if action == 'send_message':
+    if action == 'create_channel':
+        name = str(body.get('name', '')).strip()[:160]
+        hint = str(body.get('hint', '')).strip()[:160]
+        people = body.get('members') or []
+        if name:
+            is_open = 'TRUE' if not people else 'FALSE'
+            cur.execute(
+                'INSERT INTO channels (name, hint, position, is_open, created_by) VALUES ('
+                + q(name) + ', ' + q(hint) + ', 100, ' + is_open + ', ' + q(user['login']) + ') RETURNING id'
+            )
+            channel_id = cur.fetchone()[0]
+            logins = set(str(p) for p in people)
+            logins.add(user['login'])
+            for login_name in logins:
+                cur.execute(
+                    'INSERT INTO channel_members (channel_id, user_login) VALUES ('
+                    + str(channel_id) + ', ' + q(login_name) + ') ON CONFLICT DO NOTHING'
+                )
+            conn.commit()
+    elif action == 'send_message':
         text = str(body.get('text', '')).strip()
         raw = str(body.get('data', ''))
         f_url = ''

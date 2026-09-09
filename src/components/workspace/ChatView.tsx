@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/hooks/use-workspace';
+import NewChannelDialog from './NewChannelDialog';
 
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} Б`;
@@ -19,6 +20,7 @@ export default function ChatView() {
   const [sending, setSending] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [creating, setCreating] = useState(false);
 
   const active = channels.find((c) => c.id === activeId) ?? channels[0] ?? null;
 
@@ -47,8 +49,19 @@ export default function ChatView() {
 
   if (!active) {
     return (
-      <div className="bento flex-1 flex items-center justify-center text-[13px] text-muted-foreground">
-        {loading ? 'Загружаем переписку...' : 'Каналов пока нет'}
+      <div className="bento flex-1 flex flex-col items-center justify-center gap-3 text-[13px] text-muted-foreground">
+        {loading ? (
+          'Загружаем переписку...'
+        ) : (
+          <>
+            Каналов пока нет
+            <Button onClick={() => setCreating(true)} className="rounded-full gap-1.5">
+              <Icon name="Plus" size={15} />
+              Создать канал
+            </Button>
+            <NewChannelDialog open={creating} onOpenChange={setCreating} />
+          </>
+        )}
       </div>
     );
   }
@@ -56,9 +69,21 @@ export default function ChatView() {
   return (
     <div className="grid gap-3.5 lg:grid-cols-[300px_1fr] flex-1 min-h-0">
       <section className="bento p-4 sm:p-5 flex flex-col min-h-0 animate-fade-in">
-        <div className="eyebrow mb-3.5">
-          <i className="h-2.5 w-2.5 rounded-[3px] bg-bar" />
-          Мессенджер
+        <div className="flex items-center gap-2 mb-3.5">
+          <div className="eyebrow mr-auto">
+            <i className="h-2.5 w-2.5 rounded-[3px] bg-bar" />
+            Мессенджер
+          </div>
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            onClick={() => setCreating(true)}
+            className="rounded-full h-8 w-8 border-line flex-none"
+            aria-label="Новый канал"
+          >
+            <Icon name="Plus" size={15} />
+          </Button>
         </div>
         <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar space-y-2">
           {channels.map((c) => (
@@ -98,7 +123,12 @@ export default function ChatView() {
           </div>
           <div>
             <div className="font-head font-semibold text-[14px] leading-tight">{active.name}</div>
-            <div className="text-[12px] text-muted-foreground">{active.hint}</div>
+            <div className="text-[12px] text-muted-foreground">
+              {active.open === false && active.members?.length
+                ? active.members.slice(0, 3).join(', ') +
+                  (active.members.length > 3 ? ` и ещё ${active.members.length - 3}` : '')
+                : active.hint}
+            </div>
           </div>
           <div className="ml-auto flex items-center gap-1.5 text-[12px] text-muted-foreground">
             <i className="h-1.5 w-1.5 rounded-full bg-flag-done" />
@@ -247,6 +277,8 @@ export default function ChatView() {
           </div>
         </form>
       </section>
+
+      <NewChannelDialog open={creating} onOpenChange={setCreating} />
     </div>
   );
 }
