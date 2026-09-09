@@ -73,8 +73,6 @@ export interface Channel {
   messages: ChatMessage[];
 }
 
-export const CURRENT_USER = 'Алина Ветрова';
-
 export const RESTAURANTS = ['Никольская', 'Патриаршие', 'Смоленка', 'Хлебный'];
 
 export const roleLabels: Record<Role, string> = {
@@ -138,7 +136,7 @@ export const TASKS: Task[] = [
     priority: 'critical',
     cover: 'flame',
     deadline: '12 сентября',
-    assignee: CURRENT_USER,
+    assignee: 'Алина Ветрова',
     watchers: ['Дмитрий Соколов', 'Пётр Лазарев'],
     template: 'Смена меню',
     personal: true,
@@ -161,7 +159,7 @@ export const TASKS: Task[] = [
     priority: 'critical',
     cover: 'none',
     deadline: '12 сентября',
-    assignee: CURRENT_USER,
+    assignee: 'Алина Ветрова',
     watchers: ['Ольга Панина'],
     personal: true,
     track: 'Закупки',
@@ -180,7 +178,7 @@ export const TASKS: Task[] = [
     priority: 'high',
     cover: 'none',
     deadline: '18 сентября',
-    assignee: CURRENT_USER,
+    assignee: 'Алина Ветрова',
     watchers: ['Марина Ким'],
     template: 'Открытие',
     personal: true,
@@ -200,7 +198,7 @@ export const TASKS: Task[] = [
     priority: 'high',
     cover: 'grape',
     deadline: '21 сентября',
-    assignee: CURRENT_USER,
+    assignee: 'Алина Ветрова',
     watchers: ['Егор Тимофеев'],
     personal: true,
     track: 'Маркетинг',
@@ -219,7 +217,7 @@ export const TASKS: Task[] = [
     priority: 'normal',
     cover: 'none',
     deadline: '05 сентября',
-    assignee: CURRENT_USER,
+    assignee: 'Алина Ветрова',
     watchers: [],
     personal: true,
     track: 'Оборудование',
@@ -411,53 +409,6 @@ export const MEMBERS: Member[] = firstNames.map((name, i) => ({
   restaurant: RESTAURANTS[i % RESTAURANTS.length],
   online: i % 3 !== 2,
 }));
-
-export const CHANNELS: Channel[] = [
-  {
-    id: 'c1',
-    name: 'Открытие Никольской',
-    hint: '9 участников',
-    unread: 3,
-    messages: [
-      { id: 'm1', author: 'Дмитрий Соколов', text: 'Алина, по закупке рыбы решили? Держит весь запуск.', time: '09:14' },
-      { id: 'm2', author: CURRENT_USER, text: 'Два прайса на руках, третий обещали к обеду. Пересчёт сегодня.', time: '09:18', own: true },
-      { id: 'm3', author: 'Пётр Лазарев', text: 'Фудкост по осенней карте свёл, разница 3,4% в плюс.', time: '09:31' },
-      { id: 'm4', author: 'Марина Ким', text: 'График официантов на открытие закину вечером в задачу.', time: '10:02' },
-      { id: 'm5', author: CURRENT_USER, text: 'Отлично. Дегустация в четверг в 11, кухня свободна.', time: '10:05', own: true },
-    ],
-  },
-  {
-    id: 'c2',
-    name: 'Шефы холдинга',
-    hint: '6 участников',
-    unread: 0,
-    messages: [
-      { id: 'm1', author: 'Пётр Лазарев', text: 'Сезонные корнеплоды берём у того же фермера?', time: '08:40' },
-      { id: 'm2', author: 'Артём Гурьев', text: 'Да, но объём поднимаем на 20% — Хлебный открывается.', time: '08:52' },
-      { id: 'm3', author: CURRENT_USER, text: 'Заведу отдельную задачу на закупку, повешу на Ольгу.', time: '09:00', own: true },
-    ],
-  },
-  {
-    id: 'c3',
-    name: 'Маркетинг',
-    hint: '5 участников',
-    unread: 1,
-    messages: [
-      { id: 'm1', author: 'Егор Тимофеев', text: 'Студию на съёмку блюд забронировал на 13-е.', time: '11:20' },
-      { id: 'm2', author: 'Ксения Родина', text: 'Реквизит подберу, нужен список позиций.', time: '11:35' },
-    ],
-  },
-  {
-    id: 'c4',
-    name: 'Алина ↔ Дмитрий',
-    hint: 'личный диалог',
-    unread: 0,
-    messages: [
-      { id: 'm1', author: 'Дмитрий Соколов', text: 'Отчёт по неделе собери к пятнице, покажем совету.', time: '12:10' },
-      { id: 'm2', author: CURRENT_USER, text: 'Ассистент уже свёл черновик, добавлю комментарии.', time: '12:12', own: true },
-    ],
-  },
-];
 
 export const AI_ANSWERS: { q: string; a: string }[] = [
   {

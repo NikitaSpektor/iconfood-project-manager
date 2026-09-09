@@ -1,8 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
-  CHANNELS,
   type Channel,
-  type ChatMessage,
   type ColumnId,
   type Task,
 } from '@/data/workspace';
@@ -40,16 +38,19 @@ interface WorkspaceValue {
 const WorkspaceContext = createContext<WorkspaceValue | null>(null);
 
 export function WorkspaceProvider({ children, user }: { children: ReactNode; user: ApiUser }) {
-  const userName = user.name;
   const [tasks, setTasks] = useState<Task[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
-  const [channels, setChannels] = useState<Channel[]>(CHANNELS);
+  const [channels, setChannels] = useState<Channel[]>([]);
 
-  const apply = useCallback((data: { tasks: Task[]; notifications: Notification[] }) => {
-    setTasks(data.tasks);
-    setNotifications(data.notifications ?? []);
-  }, []);
+  const apply = useCallback(
+    (data: { tasks: Task[]; notifications: Notification[]; channels?: Channel[] }) => {
+      setTasks(data.tasks);
+      setNotifications(data.notifications ?? []);
+      if (data.channels) setChannels(data.channels);
+    },
+    [],
+  );
 
   useEffect(() => {
     fetchTasks()
@@ -151,27 +152,20 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
 
   const sendMessage = useCallback(
     (channelId: string, text: string) => {
-      const message: ChatMessage = {
-        id: `m${Date.now()}`,
-        author: userName,
-        text,
-        time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
-        own: true,
-      };
-      setChannels((prev) =>
-        prev.map((c) =>
-          c.id === channelId ? { ...c, messages: [...c.messages, message] } : c,
-        ),
-      );
+      taskAction({ action: 'send_message', channelId, text })
+        .then(apply)
+        .catch(() => toast({ title: 'Сообщение не отправлено', variant: 'destructive' }));
     },
-    [userName],
+    [apply],
   );
 
-  const readChannel = useCallback((channelId: string) => {
-    setChannels((prev) =>
-      prev.map((c) => (c.id === channelId ? { ...c, unread: 0 } : c)),
-    );
-  }, []);
+  const readChannel = useCallback(
+    (channelId: string) => {
+      setChannels((prev) => prev.map((c) => (c.id === channelId ? { ...c, unread: 0 } : c)));
+      taskAction({ action: 'read_channel', channelId }).catch(() => undefined);
+    },
+    [],
+  );
 
   const value = useMemo(
     () => ({

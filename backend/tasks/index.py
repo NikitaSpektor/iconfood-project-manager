@@ -73,6 +73,39 @@ def load_notifications(cur, login):
     ]
 
 
+def load_channels(cur, user):
+    cur.execute('SELECT id, name, hint FROM channels WHERE archived = FALSE ORDER BY position, id')
+    rows = cur.fetchall()
+
+    cur.execute('SELECT channel_id, id, author, author_login, text, created_at FROM messages ORDER BY id')
+    grouped = {}
+    for channel_id, mid, author, author_login, text, created in cur.fetchall():
+        grouped.setdefault(channel_id, []).append({
+            'id': str(mid),
+            'author': author,
+            'text': text,
+            'time': created.strftime('%H:%M'),
+            'createdAt': created.isoformat(),
+            'own': author_login == user['login'],
+        })
+
+    cur.execute('SELECT channel_id, last_read_id FROM channel_reads WHERE user_login = ' + q(user['login']))
+    reads = {r[0]: r[1] for r in cur.fetchall()}
+
+    channels = []
+    for cid, name, hint in rows:
+        msgs = grouped.get(cid, [])
+        last_read = reads.get(cid, 0)
+        channels.append({
+            'id': str(cid),
+            'name': name,
+            'hint': hint,
+            'unread': sum(1 for m in msgs if int(m['id']) > last_read and not m['own']),
+            'messages': msgs,
+        })
+    return channels
+
+
 def load_tasks(cur, login):
     cur.execute(
         'SELECT id, title, restaurant, column_id, priority, cover, deadline, assignee, watchers, '
@@ -151,18 +184,38 @@ def handler(event: dict, context) -> dict:
     if method == 'GET':
         tasks = load_tasks(cur, user['login'])
         notifications = load_notifications(cur, user['login'])
+        channels = load_channels(cur, user)
         cur.close()
         conn.close()
         return {
             'statusCode': 200,
             'headers': CORS,
-            'body': json.dumps({'tasks': tasks, 'notifications': notifications}),
+            'body': json.dumps({'tasks': tasks, 'notifications': notifications, 'channels': channels}),
         }
 
     body = json.loads(event.get('body') or '{}')
     action = body.get('action', '')
 
-    if action == 'read_notifications':
+    if action == 'send_message':
+        text = str(body.get('text', '')).strip()
+        if text:
+            cur.execute(
+                'INSERT INTO messages (channel_id, author, author_login, text) VALUES ('
+                + str(int(body.get('channelId'))) + ', ' + q(user['name']) + ', '
+                + q(user['login']) + ', ' + q(text[:2000]) + ')'
+            )
+            conn.commit()
+    elif action == 'read_channel':
+        channel_id = int(body.get('channelId'))
+        cur.execute('SELECT COALESCE(MAX(id), 0) FROM messages WHERE channel_id = ' + str(channel_id))
+        last_id = cur.fetchone()[0]
+        cur.execute(
+            'INSERT INTO channel_reads (channel_id, user_login, last_read_id) VALUES ('
+            + str(channel_id) + ', ' + q(user['login']) + ', ' + str(last_id) + ') '
+            'ON CONFLICT (channel_id, user_login) DO UPDATE SET last_read_id = ' + str(last_id)
+        )
+        conn.commit()
+    elif action == 'read_notifications':
         cur.execute('UPDATE notifications SET is_read = TRUE WHERE recipient_login = ' + q(user['login']))
         conn.commit()
     elif action == 'move':
@@ -228,10 +281,11 @@ def handler(event: dict, context) -> dict:
 
     tasks = load_tasks(cur, user['login'])
     notifications = load_notifications(cur, user['login'])
+    channels = load_channels(cur, user)
     cur.close()
     conn.close()
     return {
         'statusCode': 200,
         'headers': CORS,
-        'body': json.dumps({'tasks': tasks, 'notifications': notifications}),
+        'body': json.dumps({'tasks': tasks, 'notifications': notifications, 'channels': channels}),
     }

@@ -6,26 +6,38 @@ import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/hooks/use-workspace';
 
 export default function ChatView() {
-  const { channels, sendMessage, readChannel } = useWorkspace();
-  const [activeId, setActiveId] = useState(channels[0].id);
+  const { channels, sendMessage, readChannel, loading } = useWorkspace();
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const endRef = useRef<HTMLDivElement>(null);
 
-  const active = channels.find((c) => c.id === activeId) ?? channels[0];
+  const active = channels.find((c) => c.id === activeId) ?? channels[0] ?? null;
 
   useEffect(() => {
-    readChannel(activeId);
-  }, [activeId, readChannel]);
+    if (!activeId && channels.length > 0) setActiveId(channels[0].id);
+  }, [channels, activeId]);
+
+  useEffect(() => {
+    if (active && active.unread > 0) readChannel(active.id);
+  }, [active, readChannel]);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [active.messages.length, activeId]);
+  }, [active?.messages.length, activeId]);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!draft.trim()) return;
-    sendMessage(activeId, draft.trim());
+    if (!draft.trim() || !active) return;
+    sendMessage(active.id, draft.trim());
     setDraft('');
+  }
+
+  if (!active) {
+    return (
+      <div className="bento flex-1 flex items-center justify-center text-[13px] text-muted-foreground">
+        {loading ? 'Загружаем переписку...' : 'Каналов пока нет'}
+      </div>
+    );
   }
 
   return (
@@ -42,7 +54,7 @@ export default function ChatView() {
               onClick={() => setActiveId(c.id)}
               className={cn(
                 'w-full text-left rounded-tile border p-3 transition-all',
-                c.id === activeId
+                c.id === active.id
                   ? 'border-flag-select border-[1.5px] bg-card'
                   : 'border-line bg-card hover:-translate-y-0.5 hover:shadow-pill',
               )}
