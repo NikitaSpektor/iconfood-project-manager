@@ -9,7 +9,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { CURRENT_USER } from '@/data/workspace';
 
 export type ViewId =
   | 'overview'
@@ -41,9 +40,10 @@ interface TopNavProps {
   onChange: (v: ViewId) => void;
   onLogout: () => void;
   userName: string;
+  userRole: string;
 }
 
-export default function TopNav({ view, onChange, onLogout, userName }: TopNavProps) {
+export default function TopNav({ view, onChange, onLogout, userName, userRole }: TopNavProps) {
   const [open, setOpen] = useState(false);
   const primary = NAV.slice(0, 5);
   const rest = NAV.slice(5);
@@ -114,7 +114,7 @@ export default function TopNav({ view, onChange, onLogout, userName }: TopNavPro
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="rounded-2xl border-line w-56">
               <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-                {userName === CURRENT_USER ? 'Управляющий · Никольская' : 'Участник холдинга'}
+                {userRole}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem onSelect={() => onChange('settings')} className="gap-2 text-sm cursor-pointer">

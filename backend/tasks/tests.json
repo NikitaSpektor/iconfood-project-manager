@@ -1,0 +1,17 @@
+{
+  "tests": [
+    {
+      "name": "Без токена доступ закрыт",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 401
+    },
+    {
+      "name": "Создание без токена запрещено",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "create", "title": "Тест"},
+      "expectedStatus": 401
+    }
+  ]
+}

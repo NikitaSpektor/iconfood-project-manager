@@ -11,7 +11,8 @@ import {
   AccordionTrigger,
 } from '@/components/ui/accordion';
 import { toast } from '@/hooks/use-toast';
-import { CURRENT_USER, RESTAURANTS } from '@/data/workspace';
+import { RESTAURANTS, roleLabels, type Role } from '@/data/workspace';
+import { useWorkspace } from '@/hooks/use-workspace';
 
 const notifications = [
   { id: 'n1', label: 'Новая задача на мне', hint: 'Письмо ответственному сразу после создания', on: true },
@@ -40,6 +41,7 @@ const faq = [
 ];
 
 export default function SettingsView() {
+  const { user } = useWorkspace();
   const [flags, setFlags] = useState(
     Object.fromEntries(notifications.map((n) => [n.id, n.on])) as Record<string, boolean>,
   );
@@ -55,11 +57,11 @@ export default function SettingsView() {
         </div>
         <div className="flex items-center gap-3 mb-5">
           <span className="h-12 w-12 rounded-full bg-avatar font-head font-semibold flex items-center justify-center">
-            {CURRENT_USER.split(' ').map((w) => w[0]).join('')}
+            {user.name.split(' ').map((w) => w[0]).join('')}
           </span>
           <div>
-            <div className="font-head font-semibold text-[15px]">{CURRENT_USER}</div>
-            <div className="text-[12px] text-muted-foreground">Управляющий · логин alina.vetrova</div>
+            <div className="font-head font-semibold text-[15px]">{user.name}</div>
+            <div className="text-[12px] text-muted-foreground">{roleLabels[user.role as Role]} · логин {user.login}</div>
           </div>
         </div>
 

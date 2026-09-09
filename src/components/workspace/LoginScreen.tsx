@@ -3,7 +3,7 @@ import Icon from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { MEMBERS } from '@/data/workspace';
+import { login as apiLogin, type ApiUser } from '@/lib/api';
 
 const facts = [
   { icon: 'Columns3', label: 'Доска, календарь и Гант', hint: 'Одни и те же задачи в трёх видах' },
@@ -12,25 +12,29 @@ const facts = [
   { icon: 'Users', label: '30 учётных записей', hint: 'Свой логин, пароль и права у каждого' },
 ];
 
-export default function LoginScreen({ onEnter }: { onEnter: (name: string) => void }) {
+export default function LoginScreen({ onEnter }: { onEnter: (user: ApiUser) => void }) {
   const [login, setLogin] = useState('alina.vetrova');
   const [pass, setPass] = useState('');
   const [show, setShow] = useState(false);
   const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  function submit(e: React.FormEvent) {
+  async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const member = MEMBERS.find((m) => m.login === login.trim().toLowerCase());
-    if (!member) {
-      setError('Такого логина нет в холдинге');
-      return;
-    }
-    if (pass.trim().length < 4) {
-      setError('Пароль — минимум 4 символа');
+    if (!login.trim() || !pass.trim()) {
+      setError('Введите логин и пароль');
       return;
     }
     setError('');
-    onEnter(member.name);
+    setBusy(true);
+    try {
+      const user = await apiLogin(login.trim().toLowerCase(), pass.trim());
+      onEnter(user);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось войти');
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -68,7 +72,7 @@ export default function LoginScreen({ onEnter }: { onEnter: (name: string) => vo
             </div>
             <h2 className="font-head text-2xl font-bold tracking-tight">Здравствуйте</h2>
             <p className="text-[13px] text-muted-foreground mt-1.5">
-              Логин выдаёт управляющий. Для демонстрации подойдёт любой пароль от 4 символов.
+              Логин выдаёт управляющий. Стартовый пароль для всех сотрудников — iconfood.
             </p>
 
             <form onSubmit={submit} className="mt-6 space-y-4">
@@ -111,8 +115,8 @@ export default function LoginScreen({ onEnter }: { onEnter: (name: string) => vo
                 </p>
               )}
 
-              <Button type="submit" className="w-full rounded-full h-11 gap-1.5">
-                Войти в систему
+              <Button type="submit" disabled={busy} className="w-full rounded-full h-11 gap-1.5">
+                {busy ? 'Проверяем...' : 'Войти в систему'}
                 <Icon name="ArrowRight" size={16} />
               </Button>
             </form>

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,6 @@ import {
 } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
 import {
-  MEMBERS,
   RESTAURANTS,
   TEMPLATES,
   coverClasses,
@@ -27,6 +26,7 @@ import {
   type Priority,
 } from '@/data/workspace';
 import { useWorkspace } from '@/hooks/use-workspace';
+import { fetchMembers } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 const covers: Cover[] = ['none', 'flame', 'ocean', 'herb', 'grape'];
@@ -41,8 +41,20 @@ export default function NewTaskDialog({
   personal: boolean;
 }) {
   const { createTask } = useWorkspace();
+  const [people, setPeople] = useState<{ id: string; name: string }[]>([]);
   const [title, setTitle] = useState('');
-  const [assignee, setAssignee] = useState(MEMBERS[0].name);
+  const [assignee, setAssignee] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    fetchMembers()
+      .then((data) => {
+        setPeople(data);
+        setAssignee((prev) => prev || data[0]?.name || '');
+      })
+      .catch(() => undefined);
+  }, [open]);
+
   const [restaurant, setRestaurant] = useState(RESTAURANTS[0]);
   const [priority, setPriority] = useState<Priority>('normal');
   const [deadline, setDeadline] = useState('');
@@ -120,7 +132,7 @@ export default function NewTaskDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="rounded-2xl max-h-56">
-                  {MEMBERS.map((m) => (
+                  {people.map((m) => (
                     <SelectItem key={m.id} value={m.name}>
                       {m.name}
                     </SelectItem>

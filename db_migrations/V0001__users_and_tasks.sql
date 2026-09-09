@@ -1,0 +1,47 @@
+CREATE TABLE IF NOT EXISTS users (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(120) NOT NULL,
+  login VARCHAR(80) UNIQUE NOT NULL,
+  email VARCHAR(160) NOT NULL,
+  password_hash VARCHAR(255) NOT NULL,
+  role VARCHAR(20) NOT NULL DEFAULT 'staff',
+  restaurant VARCHAR(80) NOT NULL DEFAULT '',
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  token VARCHAR(64) PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id),
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMP NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS tasks (
+  id SERIAL PRIMARY KEY,
+  title VARCHAR(300) NOT NULL,
+  restaurant VARCHAR(80) NOT NULL DEFAULT '',
+  column_id VARCHAR(20) NOT NULL DEFAULT 'new',
+  priority VARCHAR(20) NOT NULL DEFAULT 'normal',
+  cover VARCHAR(20) NOT NULL DEFAULT 'none',
+  deadline VARCHAR(40) NOT NULL DEFAULT '',
+  assignee VARCHAR(120) NOT NULL DEFAULT '',
+  watchers TEXT NOT NULL DEFAULT '',
+  template VARCHAR(120),
+  note TEXT,
+  track VARCHAR(80) NOT NULL DEFAULT '',
+  gantt_start INTEGER NOT NULL DEFAULT 0,
+  gantt_span INTEGER NOT NULL DEFAULT 30,
+  owner_login VARCHAR(80) NOT NULL DEFAULT '',
+  created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS subtasks (
+  id SERIAL PRIMARY KEY,
+  task_id INTEGER NOT NULL REFERENCES tasks(id),
+  title VARCHAR(300) NOT NULL,
+  done BOOLEAN NOT NULL DEFAULT FALSE,
+  position INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_subtasks_task ON subtasks(task_id);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(user_id);

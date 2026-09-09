@@ -1,0 +1,24 @@
+{
+  "tests": [
+    {
+      "name": "Список участников",
+      "method": "GET",
+      "path": "/?action=members",
+      "expectedStatus": 200
+    },
+    {
+      "name": "Неверный пароль",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "login", "login": "alina.vetrova", "password": "wrong"},
+      "expectedStatus": 401
+    },
+    {
+      "name": "Успешный вход",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "login", "login": "alina.vetrova", "password": "iconfood"},
+      "expectedStatus": 200
+    }
+  ]
+}

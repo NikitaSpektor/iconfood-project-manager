@@ -1,0 +1,5 @@
+ALTER TABLE tasks ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE subtasks ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT FALSE;
+UPDATE tasks SET archived = TRUE WHERE id NOT IN (SELECT MIN(id) FROM tasks GROUP BY title);
+UPDATE subtasks SET archived = TRUE WHERE id NOT IN (SELECT MIN(id) FROM subtasks GROUP BY task_id, title);
+UPDATE subtasks SET archived = TRUE WHERE task_id IN (SELECT id FROM tasks WHERE archived = TRUE);

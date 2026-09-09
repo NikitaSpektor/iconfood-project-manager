@@ -1,18 +1,19 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   CHANNELS,
-  CURRENT_USER,
-  TASKS,
   type Channel,
   type ChatMessage,
   type ColumnId,
   type Task,
 } from '@/data/workspace';
 import { toast } from '@/hooks/use-toast';
+import { fetchTasks, taskAction, type ApiUser } from '@/lib/api';
 
 interface WorkspaceValue {
   tasks: Task[];
   channels: Channel[];
+  loading: boolean;
+  user: ApiUser;
   moveTask: (taskId: string, column: ColumnId) => void;
   toggleSubtask: (taskId: string, subtaskId: string) => void;
   createTask: (task: Omit<Task, 'id'>) => void;
@@ -22,14 +23,24 @@ interface WorkspaceValue {
 
 const WorkspaceContext = createContext<WorkspaceValue | null>(null);
 
-export function WorkspaceProvider({ children }: { children: ReactNode }) {
-  const [tasks, setTasks] = useState<Task[]>(TASKS);
+export function WorkspaceProvider({ children, user }: { children: ReactNode; user: ApiUser }) {
+  const userName = user.name;
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [loading, setLoading] = useState(true);
   const [channels, setChannels] = useState<Channel[]>(CHANNELS);
 
+  useEffect(() => {
+    fetchTasks()
+      .then((data) => setTasks(data))
+      .catch(() => toast({ title: 'Не удалось загрузить задачи', variant: 'destructive' }))
+      .finally(() => setLoading(false));
+  }, []);
+
   const moveTask = useCallback((taskId: string, column: ColumnId) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === taskId ? { ...t, column } : t)),
-    );
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, column } : t)));
+    taskAction({ action: 'move', taskId, column })
+      .then(setTasks)
+      .catch(() => toast({ title: 'Не удалось сохранить', variant: 'destructive' }));
   }, []);
 
   const toggleSubtask = useCallback((taskId: string, subtaskId: string) => {
@@ -45,31 +56,40 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
           : t,
       ),
     );
+    taskAction({ action: 'toggle', taskId, subtaskId })
+      .then(setTasks)
+      .catch(() => toast({ title: 'Не удалось сохранить', variant: 'destructive' }));
   }, []);
 
   const createTask = useCallback((task: Omit<Task, 'id'>) => {
-    const id = `t${Date.now()}`;
-    setTasks((prev) => [{ ...task, id }, ...prev]);
-    toast({
-      title: 'Задача создана',
-      description: `Уведомление отправлено на почту: ${task.assignee}`,
-    });
+    taskAction({ action: 'create', ...task })
+      .then((data) => {
+        setTasks(data);
+        toast({
+          title: 'Задача создана',
+          description: `Уведомление отправлено на почту: ${task.assignee}`,
+        });
+      })
+      .catch(() => toast({ title: 'Не удалось создать задачу', variant: 'destructive' }));
   }, []);
 
-  const sendMessage = useCallback((channelId: string, text: string) => {
-    const message: ChatMessage = {
-      id: `m${Date.now()}`,
-      author: CURRENT_USER,
-      text,
-      time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
-      own: true,
-    };
-    setChannels((prev) =>
-      prev.map((c) =>
-        c.id === channelId ? { ...c, messages: [...c.messages, message] } : c,
-      ),
-    );
-  }, []);
+  const sendMessage = useCallback(
+    (channelId: string, text: string) => {
+      const message: ChatMessage = {
+        id: `m${Date.now()}`,
+        author: userName,
+        text,
+        time: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+        own: true,
+      };
+      setChannels((prev) =>
+        prev.map((c) =>
+          c.id === channelId ? { ...c, messages: [...c.messages, message] } : c,
+        ),
+      );
+    },
+    [userName],
+  );
 
   const readChannel = useCallback((channelId: string) => {
     setChannels((prev) =>
@@ -78,8 +98,8 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ tasks, channels, moveTask, toggleSubtask, createTask, sendMessage, readChannel }),
-    [tasks, channels, moveTask, toggleSubtask, createTask, sendMessage, readChannel],
+    () => ({ tasks, channels, loading, user, moveTask, toggleSubtask, createTask, sendMessage, readChannel }),
+    [tasks, channels, loading, user, moveTask, toggleSubtask, createTask, sendMessage, readChannel],
   );
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

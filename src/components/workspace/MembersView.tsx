@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Icon from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -10,15 +10,23 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
-import { MEMBERS, roleLabels, roleRights, type Member, type Role } from '@/data/workspace';
+import { RESTAURANTS, roleLabels, roleRights, type Member, type Role } from '@/data/workspace';
 import { toast } from '@/hooks/use-toast';
+import { fetchMembers, inviteMember, updateRole } from '@/lib/api';
 
 export default function MembersView() {
-  const [people, setPeople] = useState<Member[]>(MEMBERS);
+  const [people, setPeople] = useState<Member[]>([]);
   const [query, setQuery] = useState('');
   const [invite, setInvite] = useState('');
+  const [inviteName, setInviteName] = useState('');
   const [inviteRole, setInviteRole] = useState<Role>('staff');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    fetchMembers()
+      .then((data) => setPeople(data as Member[]))
+      .catch(() => toast({ title: 'Не удалось загрузить участников', variant: 'destructive' }));
+  }, []);
 
   const list = useMemo(
     () =>
@@ -30,23 +38,42 @@ export default function MembersView() {
     [people, query],
   );
 
-  function sendInvite(e: React.FormEvent) {
+  async function sendInvite(e: React.FormEvent) {
     e.preventDefault();
+    if (inviteName.trim().length < 3) {
+      setError('Укажите имя и фамилию сотрудника');
+      return;
+    }
     if (!/^[^\s@]+@[^\s@]+\.[a-zа-я]{2,}$/i.test(invite.trim())) {
       setError('Введите корректный адрес почты');
       return;
     }
     setError('');
-    toast({
-      title: 'Приглашение отправлено',
-      description: `${invite.trim()} получит логин и пароль. Роль: ${roleLabels[inviteRole]}.`,
-    });
-    setInvite('');
+    try {
+      const res = await inviteMember({
+        name: inviteName.trim(),
+        email: invite.trim(),
+        role: inviteRole,
+        restaurant: RESTAURANTS[0],
+      });
+      const data = await fetchMembers();
+      setPeople(data as Member[]);
+      toast({
+        title: 'Сотрудник добавлен',
+        description: `Логин: ${res.login}, пароль: ${res.password}. Роль: ${roleLabels[inviteRole]}.`,
+      });
+      setInvite('');
+      setInviteName('');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось добавить');
+    }
   }
 
-  function changeRole(id: string, role: Role) {
+  function changeRole(id: string, login: string, role: Role) {
     setPeople((p) => p.map((m) => (m.id === id ? { ...m, role } : m)));
-    toast({ title: 'Права обновлены', description: `Новая роль: ${roleLabels[role]}` });
+    updateRole(login, role)
+      .then(() => toast({ title: 'Права обновлены', description: `Новая роль: ${roleLabels[role]}` }))
+      .catch(() => toast({ title: 'Не удалось сохранить роль', variant: 'destructive' }));
   }
 
   return (
@@ -97,7 +124,7 @@ export default function MembersView() {
                   {m.login} · {m.restaurant}
                 </div>
               </div>
-              <Select value={m.role} onValueChange={(v) => changeRole(m.id, v as Role)}>
+              <Select value={m.role} onValueChange={(v) => changeRole(m.id, m.login, v as Role)}>
                 <SelectTrigger className="w-[150px] h-8 rounded-full text-[12px] border-line">
                   <SelectValue />
                 </SelectTrigger>
@@ -126,6 +153,12 @@ export default function MembersView() {
             Добавить по почте
           </div>
           <form onSubmit={sendInvite} className="space-y-3">
+            <Input
+              value={inviteName}
+              onChange={(e) => setInviteName(e.target.value)}
+              placeholder="Имя и фамилия"
+              className="rounded-xl bg-card border-line"
+            />
             <Input
               value={invite}
               onChange={(e) => setInvite(e.target.value)}

@@ -3,7 +3,6 @@ import Icon from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/hooks/use-workspace';
 import {
-  CURRENT_USER,
   columnLabels,
   coverClasses,
   deadlineTone,
@@ -23,9 +22,10 @@ const ganttRows = [
 ];
 
 export default function OverviewView({ onGo }: { onGo: (v: ViewId) => void }) {
-  const { tasks } = useWorkspace();
+  const { tasks, user } = useWorkspace();
   const [open, setOpen] = useState<Task | null>(null);
 
+  const firstName = user.name.split(' ')[0];
   const personal = tasks.filter((t) => t.personal).slice(0, 5);
   const columns: ColumnId[] = ['new', 'progress', 'done'];
 
@@ -40,8 +40,8 @@ export default function OverviewView({ onGo }: { onGo: (v: ViewId) => void }) {
         {/* левая плашка */}
         <section className="bento p-6 sm:p-7 lg:row-span-2 flex flex-col overflow-hidden animate-fade-in">
           <h1 className="font-head text-[32px] sm:text-[40px] xl:text-[44px] font-bold leading-[1.08] tracking-[-0.025em]">
-            {CURRENT_USER.split(' ')[0]} <span className="text-muted-foreground">ведёт</span>{' '}
-            <span className="underline decoration-[3px] underline-offset-[6px]">Никольскую</span>.
+            {firstName} <span className="text-muted-foreground">ведёт</span>{' '}
+            <span className="underline decoration-[3px] underline-offset-[6px]">{user.restaurant}</span>.
           </h1>
 
           <div className="h-px bg-line my-5" />
