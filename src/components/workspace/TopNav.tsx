@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Icon from '@/components/ui/icon';
 import NotificationsBell from './NotificationsBell';
+import MessagesBell from './MessagesBell';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -113,6 +114,7 @@ export default function TopNav({ view, onChange, onLogout, userName, userRole, o
         </nav>
 
         <div className="flex items-center gap-2">
+          <MessagesBell onOpenChat={() => onChange('chat')} />
           <NotificationsBell onOpenTask={onOpenTask} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

@@ -66,7 +66,7 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
   useEffect(() => {
     const timer = setInterval(() => {
       fetchTasks().then(apply).catch(() => undefined);
-    }, 30000);
+    }, 15000);
     return () => clearInterval(timer);
   }, [apply]);
 
