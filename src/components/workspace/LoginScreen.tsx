@@ -9,11 +9,11 @@ const facts = [
   { icon: 'Columns3', label: 'Доска, календарь и Гант', hint: 'Одни и те же задачи в трёх видах' },
   { icon: 'MessageSquare', label: 'Мессенджер холдинга', hint: 'Каналы по ресторанам и проектам' },
   { icon: 'Sparkles', label: 'Ассистент', hint: 'Разбирает сроки и загрузку людей' },
-  { icon: 'Users', label: '30 учётных записей', hint: 'Свой логин, пароль и права у каждого' },
+  { icon: 'Users', label: '29 сотрудников', hint: 'Свой логин, пароль и права у каждого' },
 ];
 
 export default function LoginScreen({ onEnter }: { onEnter: (user: ApiUser) => void }) {
-  const [login, setLogin] = useState('alina.vetrova');
+  const [login, setLogin] = useState('');
   const [pass, setPass] = useState('');
   const [show, setShow] = useState(false);
   const [error, setError] = useState('');
@@ -49,7 +49,7 @@ export default function LoginScreen({ onEnter }: { onEnter: (user: ApiUser) => v
           </h1>
           <div className="h-px bg-line my-6" />
           <p className="text-[15px] leading-relaxed text-muted-foreground max-w-md">
-            Четыре ресторана, тридцать человек и одна доска, на которой видно, что горит сегодня,
+            Двенадцать ресторанов, весь холдинг и одна доска, на которой видно, что горит сегодня,
             а что подождёт до конца месяца.
           </p>
 
@@ -82,7 +82,7 @@ export default function LoginScreen({ onEnter }: { onEnter: (user: ApiUser) => v
                   id="lg"
                   value={login}
                   onChange={(e) => setLogin(e.target.value)}
-                  placeholder="alina.vetrova"
+                  placeholder="имя.фамилия"
                   className="rounded-xl h-11 bg-card border-line"
                 />
               </div>
