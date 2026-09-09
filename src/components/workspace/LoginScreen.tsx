@@ -39,7 +39,10 @@ export default function LoginScreen({ onEnter }: { onEnter: (user: ApiUser) => v
 
   return (
     <div className="min-h-screen bg-background p-4 sm:p-7 flex flex-col">
-      <div className="font-head font-bold text-[13px] tracking-[0.06em] pl-1 mb-4">ICONFOOD</div>
+      <div className="pl-1 mb-4 flex items-center">
+        <img src="/logo.png" alt="ICONFOOD" className="h-[26px] w-auto dark:hidden" />
+        <img src="/logo-dark.png" alt="ICONFOOD" className="h-[26px] w-auto hidden dark:block" />
+      </div>
 
       <div className="grid gap-3.5 lg:grid-cols-[46fr_54fr] flex-1 min-h-0">
         <section className="bento p-7 sm:p-10 flex flex-col justify-center animate-fade-in">

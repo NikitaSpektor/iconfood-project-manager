@@ -53,8 +53,17 @@ export default function TopNav({ view, onChange, onLogout, userName, userRole, o
   return (
     <header className="relative flex-none">
       <div className="flex items-center justify-between gap-3 h-[54px]">
-        <div className="font-head font-bold text-[13px] tracking-[0.06em] pl-1">
-          ICONFOOD
+        <div className="pl-1 flex items-center">
+          <img
+            src="/logo.png"
+            alt="ICONFOOD"
+            className="h-[22px] w-auto dark:hidden"
+          />
+          <img
+            src="/logo-dark.png"
+            alt="ICONFOOD"
+            className="h-[22px] w-auto hidden dark:block"
+          />
         </div>
 
         {/* плавающая пилюля-меню */}
