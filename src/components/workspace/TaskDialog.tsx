@@ -18,6 +18,7 @@ import {
   type Task,
 } from '@/data/workspace';
 import { useWorkspace } from '@/hooks/use-workspace';
+import TaskComments from './TaskComments';
 import { cn } from '@/lib/utils';
 
 const columnOrder: ColumnId[] = ['new', 'progress', 'done'];
@@ -44,12 +45,12 @@ export default function TaskDialog({
 
   return (
     <Dialog open={!!task} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg rounded-bento border-line p-0 overflow-hidden">
+      <DialogContent className="max-w-lg rounded-bento border-line p-0 overflow-hidden max-h-[88vh] flex flex-col">
         {live.cover !== 'none' && (
-          <div className={cn('h-24 w-full', coverClasses[live.cover])} />
+          <div className={cn('h-24 w-full flex-none', coverClasses[live.cover])} />
         )}
 
-        <div className="p-6 pt-5">
+        <div className="p-6 pt-5 overflow-y-auto no-scrollbar">
           <DialogHeader className="text-left space-y-2">
             <div className="flex flex-wrap items-center gap-2">
               <span
@@ -152,6 +153,8 @@ export default function TaskDialog({
               ))}
             </div>
           </div>
+
+          <TaskComments taskId={live.id} comments={live.comments ?? []} />
         </div>
       </DialogContent>
     </Dialog>

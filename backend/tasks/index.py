@@ -41,6 +41,16 @@ def load_tasks(cur, login):
     subs = {}
     for task_id, sid, title, done in cur.fetchall():
         subs.setdefault(task_id, []).append({'id': str(sid), 'title': title, 'done': done})
+
+    cur.execute('SELECT task_id, id, author, text, created_at FROM comments ORDER BY id')
+    comments = {}
+    for task_id, cid, author, text, created in cur.fetchall():
+        comments.setdefault(task_id, []).append({
+            'id': str(cid),
+            'author': author,
+            'text': text,
+            'createdAt': created.isoformat(),
+        })
     tasks = []
     for r in rows:
         tasks.append({
@@ -60,6 +70,7 @@ def load_tasks(cur, login):
             'ganttSpan': r[13],
             'personal': bool(r[14]) and r[14] == login,
             'subtasks': subs.get(r[0], []),
+            'comments': comments.get(r[0], []),
         })
     return tasks
 
@@ -93,6 +104,14 @@ def handler(event: dict, context) -> dict:
     elif action == 'toggle':
         cur.execute('UPDATE subtasks SET done = NOT done WHERE id = ' + str(int(body.get('subtaskId'))))
         conn.commit()
+    elif action == 'comment':
+        text = str(body.get('text', '')).strip()
+        if text:
+            cur.execute(
+                'INSERT INTO comments (task_id, author, author_login, text) VALUES ('
+                + str(int(body.get('taskId'))) + ', ' + q(user['name']) + ', ' + q(user['login']) + ', ' + q(text) + ')'
+            )
+            conn.commit()
     elif action == 'create':
         owner = user['login'] if body.get('personal') else ''
         cur.execute(

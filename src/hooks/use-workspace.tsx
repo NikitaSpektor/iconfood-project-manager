@@ -17,6 +17,7 @@ interface WorkspaceValue {
   moveTask: (taskId: string, column: ColumnId) => void;
   toggleSubtask: (taskId: string, subtaskId: string) => void;
   createTask: (task: Omit<Task, 'id'>) => void;
+  addComment: (taskId: string, text: string) => Promise<void>;
   sendMessage: (channelId: string, text: string) => void;
   readChannel: (channelId: string) => void;
 }
@@ -73,6 +74,15 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
       .catch(() => toast({ title: 'Не удалось создать задачу', variant: 'destructive' }));
   }, []);
 
+  const addComment = useCallback(async (taskId: string, text: string) => {
+    try {
+      const data = await taskAction({ action: 'comment', taskId, text });
+      setTasks(data);
+    } catch {
+      toast({ title: 'Не удалось отправить комментарий', variant: 'destructive' });
+    }
+  }, []);
+
   const sendMessage = useCallback(
     (channelId: string, text: string) => {
       const message: ChatMessage = {
@@ -98,8 +108,19 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
   }, []);
 
   const value = useMemo(
-    () => ({ tasks, channels, loading, user, moveTask, toggleSubtask, createTask, sendMessage, readChannel }),
-    [tasks, channels, loading, user, moveTask, toggleSubtask, createTask, sendMessage, readChannel],
+    () => ({
+      tasks,
+      channels,
+      loading,
+      user,
+      moveTask,
+      toggleSubtask,
+      createTask,
+      addComment,
+      sendMessage,
+      readChannel,
+    }),
+    [tasks, channels, loading, user, moveTask, toggleSubtask, createTask, addComment, sendMessage, readChannel],
   );
 
   return <WorkspaceContext.Provider value={value}>{children}</WorkspaceContext.Provider>;

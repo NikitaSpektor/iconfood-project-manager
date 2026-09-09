@@ -9,6 +9,13 @@ export interface Subtask {
   done: boolean;
 }
 
+export interface Comment {
+  id: string;
+  author: string;
+  text: string;
+  createdAt: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -22,6 +29,7 @@ export interface Task {
   template?: string;
   personal: boolean;
   subtasks: Subtask[];
+  comments?: Comment[];
   note?: string;
   ganttStart: number;
   ganttSpan: number;
