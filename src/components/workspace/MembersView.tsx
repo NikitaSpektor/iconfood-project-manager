@@ -253,11 +253,6 @@ export default function MembersView() {
               </Select>
             </div>
           ))}
-          {list.length === 0 && (
-            <div className="rounded-tile border border-dashed border-line py-10 text-center text-[13px] text-muted-foreground">
-              Никого не нашли
-            </div>
-          )}
         </div>
       </section>
 
