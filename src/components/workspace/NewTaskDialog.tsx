@@ -27,6 +27,7 @@ import {
 } from '@/data/workspace';
 import { useWorkspace } from '@/hooks/use-workspace';
 import { fetchMembers, suggestSubtasks } from '@/lib/api';
+import { localSubtaskHints } from '@/lib/subtask-hints';
 import { deadlineLabel, formatDeadline, isoToday } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 
@@ -99,8 +100,10 @@ export default function NewTaskDialog({
       });
       setSteps((prev) => [...prev, ...list]);
       setAiNote(`Ассистент предложил ${list.length} шагов — отредактируйте или удалите лишние`);
-    } catch (e) {
-      setAiNote(e instanceof Error ? e.message : 'Не удалось получить подсказку');
+    } catch {
+      const list = localSubtaskHints(title.trim(), restaurant);
+      setSteps((prev) => [...prev, ...list]);
+      setAiNote(`Подобрал ${list.length} шагов по опыту холдинга — отредактируйте под себя`);
     } finally {
       setAiLoading(false);
     }
