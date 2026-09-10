@@ -59,7 +59,7 @@ export default function BoardView({ personal }: { personal: boolean }) {
           </div>
         </div>
 
-        <div className="relative">
+        <div className="relative flex-1 min-w-[150px] sm:flex-none">
           <Icon
             name="Search"
             size={14}
@@ -69,7 +69,7 @@ export default function BoardView({ personal }: { personal: boolean }) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Поиск задачи"
-            className="rounded-full h-9 pl-8 w-44 bg-card border-line text-[13px]"
+            className="rounded-full h-9 pl-8 w-full sm:w-44 bg-card border-line text-[13px]"
           />
         </div>
 
@@ -81,7 +81,7 @@ export default function BoardView({ personal }: { personal: boolean }) {
           onOwner={setOwner}
         />
 
-        <Button onClick={() => { setPreset('none'); setCreating(true); }} className="rounded-full h-9 gap-1.5 text-[13px]">
+        <Button onClick={() => { setPreset('none'); setCreating(true); }} className="rounded-full h-9 gap-1.5 text-[13px] flex-none">
           <Icon name="Plus" size={15} />
           Задача
         </Button>

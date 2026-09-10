@@ -131,7 +131,7 @@ export default function MembersView() {
             </div>
           </div>
           <Select value={filterRest} onValueChange={setFilterRest}>
-            <SelectTrigger className="w-[150px] h-9 rounded-full text-[12px] border-line bg-card">
+            <SelectTrigger className="flex-1 min-w-[130px] sm:flex-none sm:w-[150px] h-9 rounded-full text-[12px] border-line bg-card">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="rounded-2xl">
@@ -144,7 +144,7 @@ export default function MembersView() {
             </SelectContent>
           </Select>
           <Select value={filterRole} onValueChange={setFilterRole}>
-            <SelectTrigger className="w-[140px] h-9 rounded-full text-[12px] border-line bg-card">
+            <SelectTrigger className="flex-1 min-w-[130px] sm:flex-none sm:w-[140px] h-9 rounded-full text-[12px] border-line bg-card">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="rounded-2xl">
@@ -157,7 +157,7 @@ export default function MembersView() {
             </SelectContent>
           </Select>
           <Select value={filterPos} onValueChange={setFilterPos}>
-            <SelectTrigger className="w-[170px] h-9 rounded-full text-[12px] border-line bg-card">
+            <SelectTrigger className="flex-1 min-w-[130px] sm:flex-none sm:w-[170px] h-9 rounded-full text-[12px] border-line bg-card">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="rounded-2xl max-h-[300px]">
@@ -169,7 +169,7 @@ export default function MembersView() {
               ))}
             </SelectContent>
           </Select>
-          <div className="relative">
+          <div className="relative flex-1 min-w-[150px] sm:flex-none">
             <Icon
               name="Search"
               size={14}
@@ -179,7 +179,7 @@ export default function MembersView() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Имя, должность или логин"
-              className="rounded-full h-9 pl-8 w-52 bg-card border-line text-[13px]"
+              className="rounded-full h-9 pl-8 w-full sm:w-52 bg-card border-line text-[13px]"
             />
           </div>
           {dirty && (
@@ -204,7 +204,7 @@ export default function MembersView() {
           {list.map((m) => (
             <div
               key={m.id}
-              className="flex items-center gap-3 bg-card border border-line rounded-tile px-3.5 py-2.5"
+              className="flex flex-wrap items-center gap-x-3 gap-y-2 bg-card border border-line rounded-tile px-3.5 py-2.5"
             >
               <span className="relative h-9 w-9 rounded-full bg-avatar font-head text-[12px] font-semibold flex items-center justify-center flex-none">
                 {m.name.split(' ').map((w) => w[0]).join('')}
@@ -215,7 +215,7 @@ export default function MembersView() {
                   )}
                 />
               </span>
-              <div className="min-w-0 mr-auto">
+              <div className="min-w-0 flex-1 mr-auto">
                 <div className="text-[13px] font-medium truncate">{m.name}</div>
                 <input
                   defaultValue={m.position ?? ''}
@@ -228,7 +228,7 @@ export default function MembersView() {
                 value={m.restaurant}
                 onValueChange={(v) => changeRestaurant(m.id, m.login, v)}
               >
-                <SelectTrigger className="w-[140px] h-8 rounded-full text-[12px] border-line flex-none">
+                <SelectTrigger className="flex-1 min-w-[130px] sm:flex-none sm:w-[140px] h-8 rounded-full text-[12px] border-line">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="rounded-2xl">
@@ -240,7 +240,7 @@ export default function MembersView() {
                 </SelectContent>
               </Select>
               <Select value={m.role} onValueChange={(v) => changeRole(m.id, m.login, v as Role)}>
-                <SelectTrigger className="w-[150px] h-8 rounded-full text-[12px] border-line flex-none">
+                <SelectTrigger className="flex-1 min-w-[130px] sm:flex-none sm:w-[150px] h-8 rounded-full text-[12px] border-line">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="rounded-2xl">

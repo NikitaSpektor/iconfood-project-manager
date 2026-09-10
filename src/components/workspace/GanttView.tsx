@@ -58,7 +58,7 @@ export default function GanttView() {
       </section>
 
       <section className="bento p-4 sm:p-6 flex-1 min-h-0 flex flex-col overflow-hidden animate-fade-in [animation-delay:.1s]">
-        <div className="grid grid-cols-[110px_1fr] gap-3 mb-3">
+        <div className="grid grid-cols-[84px_1fr] sm:grid-cols-[110px_1fr] gap-3 mb-3">
           <span />
           <div className="flex justify-between text-[10px] text-muted-foreground px-1">
             {days.filter((d) => d % 3 === 1).map((d) => (
@@ -78,7 +78,7 @@ export default function GanttView() {
                 {list.map((t) => {
                   const tone = toneClasses[deadlineTone(t.deadline, t.column)];
                   return (
-                    <div key={t.id} className="grid grid-cols-[110px_1fr] items-center gap-3">
+                    <div key={t.id} className="grid grid-cols-[84px_1fr] sm:grid-cols-[110px_1fr] items-center gap-3">
                       <button
                         onClick={() => setOpen(t)}
                         className="text-[12px] text-muted-foreground truncate text-left hover:text-foreground transition-colors"

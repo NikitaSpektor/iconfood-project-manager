@@ -58,7 +58,7 @@ export default function ScopeFilters({
   return (
     <>
       <Select value={place} onValueChange={onPlace}>
-        <SelectTrigger className="w-[180px] h-9 rounded-full text-[12px] border-line bg-card">
+        <SelectTrigger className="flex-1 min-w-[140px] sm:flex-none sm:w-[180px] h-9 rounded-full text-[12px] border-line bg-card">
           <SelectValue />
         </SelectTrigger>
         <SelectContent className="rounded-2xl max-h-[320px]">
@@ -72,7 +72,7 @@ export default function ScopeFilters({
       </Select>
 
       <Select value={owner} onValueChange={onOwner}>
-        <SelectTrigger className="w-[170px] h-9 rounded-full text-[12px] border-line bg-card">
+        <SelectTrigger className="flex-1 min-w-[140px] sm:flex-none sm:w-[170px] h-9 rounded-full text-[12px] border-line bg-card">
           <SelectValue />
         </SelectTrigger>
         <SelectContent className="rounded-2xl max-h-[320px]">
@@ -100,7 +100,7 @@ export default function ScopeFilters({
             onPlace('all');
             onOwner('all');
           }}
-          className="rounded-full h-9 border-line text-[12px] gap-1.5"
+          className="rounded-full h-9 border-line text-[12px] gap-1.5 flex-none"
         >
           <Icon name="X" size={14} />
           Сбросить

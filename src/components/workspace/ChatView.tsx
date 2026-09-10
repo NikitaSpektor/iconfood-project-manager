@@ -93,7 +93,7 @@ export default function ChatView() {
 
   return (
     <div className="grid gap-3.5 lg:grid-cols-[300px_1fr] flex-1 min-h-0">
-      <section className="bento p-4 sm:p-5 flex flex-col min-h-0 animate-fade-in">
+      <section className="bento p-4 sm:p-5 flex flex-col min-h-0 max-h-[42vh] lg:max-h-none animate-fade-in">
         <div className="flex items-center gap-2 mb-3">
           <div className="eyebrow mr-auto">
             <i className="h-2.5 w-2.5 rounded-[3px] bg-bar" />

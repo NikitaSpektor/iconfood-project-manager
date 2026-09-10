@@ -51,7 +51,7 @@ export default function CalendarView() {
       </section>
 
       <section className="bento p-4 sm:p-6 flex-1 min-h-0 flex flex-col animate-fade-in [animation-delay:.1s]">
-        <div className="grid grid-cols-7 gap-2 mb-2">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 mb-2">
           {weekdays.map((w) => (
             <div key={w} className="text-[11px] text-muted-foreground text-center font-medium">
               {w}
@@ -59,7 +59,7 @@ export default function CalendarView() {
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-2 flex-1 min-h-0 overflow-y-auto no-scrollbar auto-rows-fr">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 flex-1 min-h-0 overflow-y-auto no-scrollbar auto-rows-fr">
           {Array.from({ length: LEAD }).map((_, i) => (
             <div key={`lead-${i}`} />
           ))}
@@ -70,7 +70,7 @@ export default function CalendarView() {
               <div
                 key={day}
                 className={cn(
-                  'rounded-tile border p-2 min-h-[76px] flex flex-col gap-1 transition-colors',
+                  'rounded-tile border p-1 sm:p-2 min-h-[58px] sm:min-h-[76px] flex flex-col gap-0.5 sm:gap-1 transition-colors',
                   isToday ? 'border-primary bg-primary/[0.04]' : 'border-line bg-card',
                 )}
               >
@@ -89,7 +89,7 @@ export default function CalendarView() {
                       key={t.id}
                       onClick={() => setOpen(t)}
                       className={cn(
-                        'text-left text-[10px] leading-tight rounded-md px-1.5 py-1 truncate transition-opacity hover:opacity-75',
+                        'text-left text-[9px] sm:text-[10px] leading-tight rounded-md px-1 sm:px-1.5 py-0.5 sm:py-1 truncate transition-opacity hover:opacity-75',
                         tone.soft,
                         tone.text,
                       )}
