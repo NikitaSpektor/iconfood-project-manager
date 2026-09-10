@@ -5,14 +5,14 @@ import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/hooks/use-workspace';
 import {
-  REPORT_BY_RESTAURANT,
-  REPORT_METRICS,
-  WEEK_LOAD,
+  RESTAURANTS,
   columnLabels,
+  deadlineTone,
   toneClasses,
   type ColumnId,
 } from '@/data/workspace';
 import { toast } from '@/hooks/use-toast';
+import ScopeFilters, { useDefaultPlace, useScopeFilter } from './ScopeFilters';
 
 const periods = ['Неделя', 'Месяц', 'Квартал'];
 const slices = ['По ресторанам', 'По колонкам', 'По важности'];
@@ -21,13 +21,34 @@ export default function ReportsView() {
   const { tasks } = useWorkspace();
   const [period, setPeriod] = useState('Месяц');
   const [slice, setSlice] = useState('По ресторанам');
+  const [place, setPlace] = useState('all');
+  const [owner, setOwner] = useState('all');
+  useDefaultPlace(setPlace);
+
+  const rows = useScopeFilter(tasks, place, owner);
+
+  const metrics = useMemo(() => {
+    const total = rows.length;
+    const done = rows.filter((t) => t.column === 'done').length;
+    const hot = rows.filter(
+      (t) => t.column !== 'done' && deadlineTone(t.deadline, t.column) === 'hot',
+    ).length;
+    const steps = rows.reduce((sum, t) => sum + t.subtasks.length, 0);
+    const stepsDone = rows.reduce((sum, t) => sum + t.subtasks.filter((x) => x.done).length, 0);
+    return [
+      { id: 'total', label: 'Задач в срезе', value: String(total), icon: 'ClipboardList', tone: 'soon' as const, delta: `${rows.filter((t) => t.column === 'progress').length} в работе` },
+      { id: 'done', label: 'Закрыто', value: total ? `${Math.round((done / total) * 100)}%` : '0%', icon: 'CircleCheck', tone: 'done' as const, delta: `${done} из ${total}` },
+      { id: 'hot', label: 'Горящих', value: String(hot), icon: 'Flame', tone: hot > 0 ? ('hot' as const) : ('done' as const), delta: hot > 0 ? 'нужен контроль' : 'сроки под контролем' },
+      { id: 'steps', label: 'Подзадачи', value: steps ? `${Math.round((stepsDone / steps) * 100)}%` : '0%', icon: 'ListChecks', tone: 'soon' as const, delta: `${stepsDone} из ${steps} шагов` },
+    ];
+  }, [rows]);
 
   const sliceRows = useMemo(() => {
     if (slice === 'По колонкам') {
       return (['new', 'progress', 'done'] as ColumnId[]).map((c) => ({
         name: columnLabels[c],
-        done: tasks.filter((t) => t.column === c).length,
-        total: tasks.length,
+        done: rows.filter((t) => t.column === c).length,
+        total: rows.length,
       }));
     }
     if (slice === 'По важности') {
@@ -38,12 +59,27 @@ export default function ReportsView() {
       ];
       return groups.map(([name, keys]) => ({
         name,
-        done: tasks.filter((t) => keys.includes(t.priority)).length,
-        total: tasks.length,
+        done: rows.filter((t) => keys.includes(t.priority)).length,
+        total: rows.length,
       }));
     }
-    return REPORT_BY_RESTAURANT;
-  }, [slice, tasks]);
+    return RESTAURANTS.map((r) => {
+      const list = rows.filter((t) => t.restaurant === r);
+      return { name: r, done: list.filter((t) => t.column === 'done').length, total: list.length };
+    }).filter((r) => r.total > 0);
+  }, [slice, rows]);
+
+  const load = useMemo(() => {
+    const names = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+    const counts = names.map(() => 0);
+    rows.forEach((t) => {
+      const day = Number(t.deadline.slice(0, 2));
+      if (!day) return;
+      counts[(day + 1) % 7] += 1;
+    });
+    const max = Math.max(...counts, 1);
+    return names.map((day, i) => ({ day, value: counts[i], pct: Math.round((counts[i] / max) * 100) }));
+  }, [rows]);
 
   return (
     <div className="flex flex-col gap-3.5 flex-1 min-h-0 overflow-y-auto no-scrollbar">
@@ -51,9 +87,18 @@ export default function ReportsView() {
         <div className="mr-auto">
           <div className="font-head font-semibold text-[14px]">Динамические отчёты</div>
           <div className="text-[12px] text-muted-foreground">
-            Срез собирается на лету — период и разрез переключаются
+            {rows.length} задач
+            {place !== 'all' && ` · ${place}`}
+            {owner !== 'all' && ` · ${owner}`}
           </div>
         </div>
+        <ScopeFilters
+          tasks={tasks}
+          place={place}
+          owner={owner}
+          onPlace={setPlace}
+          onOwner={setOwner}
+        />
         <div className="flex items-center gap-1 rounded-full bg-card border border-line p-1">
           {periods.map((p) => (
             <button
@@ -74,7 +119,7 @@ export default function ReportsView() {
           onClick={() =>
             toast({
               title: 'Отчёт выгружен',
-              description: `Срез «${slice}» за период «${period}» отправлен на почту руководителям.`,
+              description: `Срез «${slice}» за период «${period}»${place !== 'all' ? `, ${place}` : ''} — ${rows.length} задач. Отправлен на почту руководителям.`,
             })
           }
         >
@@ -84,7 +129,7 @@ export default function ReportsView() {
       </section>
 
       <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-4 flex-none">
-        {REPORT_METRICS.map((m, i) => (
+        {metrics.map((m, i) => (
           <section
             key={m.id}
             className="bento p-5 animate-fade-in"
@@ -149,22 +194,22 @@ export default function ReportsView() {
             Загрузка по дням
           </div>
           <div className="flex-1 flex items-end gap-2.5 min-h-[160px]">
-            {WEEK_LOAD.map((d) => (
+            {load.map((d) => (
               <div key={d.day} className="flex-1 flex flex-col items-center gap-2 h-full justify-end">
                 <span className="text-[11px] text-muted-foreground">{d.value}</span>
                 <div
                   className={cn(
                     'w-full rounded-t-lg transition-all duration-500',
-                    d.value > 80 ? 'bg-flag-hot' : d.value > 60 ? 'bg-flag-soon' : 'bg-bar',
+                    d.pct > 80 ? 'bg-flag-hot' : d.pct > 60 ? 'bg-flag-soon' : 'bg-bar',
                   )}
-                  style={{ height: `${d.value}%` }}
+                  style={{ height: `${Math.max(d.pct, 3)}%` }}
                 />
                 <span className="text-[11px] text-muted-foreground">{d.day}</span>
               </div>
             ))}
           </div>
           <p className="mt-4 pt-3.5 border-t border-line text-[12px] text-muted-foreground">
-            Пик в четверг: дегустация меню и аттестация хостес в один день.
+            Дедлайны задач по дням недели в текущем срезе.
           </p>
         </section>
       </div>
