@@ -399,6 +399,7 @@ export const TASKS: Task[] = [
 export const TEMPLATES = [
   {
     id: 'tpl1',
+    owner: 'Влад Терликов',
     name: 'Открытие ресторана',
     icon: 'DoorOpen',
     hint: 'Аренда, ремонт, персонал, прогон, день Х',
@@ -415,6 +416,7 @@ export const TEMPLATES = [
   },
   {
     id: 'tpl2',
+    owner: 'Павел Ларионов',
     name: 'Смена основного меню и сезонные вкладки',
     icon: 'ChefHat',
     hint: 'Заявки, фудкост, дегустация, печать',
@@ -429,6 +431,7 @@ export const TEMPLATES = [
   },
   {
     id: 'tpl3',
+    owner: 'Владимир Ануфриев',
     name: 'Смена барного меню и сезонные вкладки',
     icon: 'Martini',
     hint: 'Коктейли, калькуляция, обучение бара',
@@ -443,6 +446,7 @@ export const TEMPLATES = [
   },
   {
     id: 'tpl4',
+    owner: 'Никита Спектор',
     name: 'Обучение и развитие персонала',
     icon: 'GraduationCap',
     hint: 'Скрипты, тренинги, тест, аттестация',
@@ -456,6 +460,7 @@ export const TEMPLATES = [
   },
   {
     id: 'tpl5',
+    owner: 'Марина Гаврилова',
     name: 'Инвентаризация',
     icon: 'ClipboardList',
     hint: 'Остатки, сверка, списание, акт',
@@ -468,6 +473,7 @@ export const TEMPLATES = [
   },
   {
     id: 'tpl6',
+    owner: 'Марго Филина',
     name: 'Маркетинг и дизайн',
     icon: 'Megaphone',
     hint: 'Идея, съёмка, макеты, запуск, разбор',
@@ -483,6 +489,7 @@ export const TEMPLATES = [
   },
   {
     id: 'tpl7',
+    owner: 'Надежда Петренко',
     name: 'Закупки',
     icon: 'ShoppingCart',
     hint: 'Заявка, поставщики, цены, договор, поставка',
@@ -497,6 +504,7 @@ export const TEMPLATES = [
   },
   {
     id: 'tpl8',
+    owner: 'Андрей Виллер',
     name: 'Текущие технические задачи',
     icon: 'Wrench',
     hint: 'Заявка, диагностика, ремонт, приёмка',
@@ -510,6 +518,7 @@ export const TEMPLATES = [
   },
   {
     id: 'tpl9',
+    owner: 'Ольга Любина',
     name: 'Эстетика ресторанов',
     icon: 'Flower2',
     hint: 'Аудит, декор, свет, музыка, проверка',
@@ -524,6 +533,7 @@ export const TEMPLATES = [
   },
   {
     id: 'tpl10',
+    owner: 'Ольга Любина',
     name: 'Униформа персонала',
     icon: 'Shirt',
     hint: 'Концепция, образцы, размеры, пошив, выдача',
@@ -538,6 +548,7 @@ export const TEMPLATES = [
   },
   {
     id: 'tpl11',
+    owner: 'Марина Глушкова',
     name: 'Программа лояльности',
     icon: 'BadgePercent',
     hint: 'Механика, настройка, обучение, запуск',
@@ -552,6 +563,7 @@ export const TEMPLATES = [
   },
   {
     id: 'tpl12',
+    owner: 'Татьяна Камаева',
     name: 'Доставка',
     icon: 'Bike',
     hint: 'Меню, агрегаторы, упаковка, сборка, качество',

@@ -35,25 +35,17 @@ export default function NewTaskDialog({
   open,
   onOpenChange,
   personal,
+  presetTemplate = 'none',
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   personal: boolean;
+  presetTemplate?: string;
 }) {
   const { createTask } = useWorkspace();
   const [people, setPeople] = useState<{ id: string; name: string }[]>([]);
   const [title, setTitle] = useState('');
   const [assignee, setAssignee] = useState('');
-
-  useEffect(() => {
-    if (!open) return;
-    fetchMembers()
-      .then((data) => {
-        setPeople(data);
-        setAssignee((prev) => prev || data[0]?.name || '');
-      })
-      .catch(() => undefined);
-  }, [open]);
 
   const [restaurant, setRestaurant] = useState(RESTAURANTS[0]);
   const [priority, setPriority] = useState<Priority>('normal');
@@ -61,6 +53,27 @@ export default function NewTaskDialog({
   const [cover, setCover] = useState<Cover>('flame');
   const [template, setTemplate] = useState('none');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (!open) return;
+    setTemplate(presetTemplate);
+    const owner = TEMPLATES.find((t) => t.id === presetTemplate)?.owner;
+    fetchMembers()
+      .then((data) => {
+        setPeople(data);
+        const match = owner && data.find((m) => m.name === owner);
+        setAssignee((prev) => (match ? match.name : prev || data[0]?.name || ''));
+      })
+      .catch(() => undefined);
+  }, [open, presetTemplate]);
+
+  function pickTemplate(id: string) {
+    setTemplate(id);
+    const tpl = TEMPLATES.find((t) => t.id === id);
+    if (!tpl?.owner) return;
+    const match = people.find((m) => m.name === tpl.owner);
+    if (match) setAssignee(match.name);
+  }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -187,7 +200,7 @@ export default function NewTaskDialog({
 
           <div className="space-y-1.5">
             <Label>Шаблон</Label>
-            <Select value={template} onValueChange={setTemplate}>
+            <Select value={template} onValueChange={pickTemplate}>
               <SelectTrigger className="rounded-xl">
                 <SelectValue />
               </SelectTrigger>
@@ -200,6 +213,11 @@ export default function NewTaskDialog({
                 ))}
               </SelectContent>
             </Select>
+            {TEMPLATES.find((t) => t.id === template)?.owner && (
+              <p className="text-[11px] text-muted-foreground">
+                Ответственный по умолчанию — {TEMPLATES.find((t) => t.id === template)?.owner}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">

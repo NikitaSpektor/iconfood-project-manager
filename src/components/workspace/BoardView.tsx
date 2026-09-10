@@ -21,6 +21,7 @@ export default function BoardView({ personal }: { personal: boolean }) {
   const { tasks, moveTask } = useWorkspace();
   const [open, setOpen] = useState<Task | null>(null);
   const [creating, setCreating] = useState(false);
+  const [preset, setPreset] = useState('none');
   const [query, setQuery] = useState('');
   const [place, setPlace] = useState('all');
   const [over, setOver] = useState<ColumnId | null>(null);
@@ -80,7 +81,7 @@ export default function BoardView({ personal }: { personal: boolean }) {
           ))}
         </div>
 
-        <Button onClick={() => setCreating(true)} className="rounded-full h-9 gap-1.5 text-[13px]">
+        <Button onClick={() => { setPreset('none'); setCreating(true); }} className="rounded-full h-9 gap-1.5 text-[13px]">
           <Icon name="Plus" size={15} />
           Задача
         </Button>
@@ -146,7 +147,7 @@ export default function BoardView({ personal }: { personal: boolean }) {
           {TEMPLATES.map((tpl) => (
             <button
               key={tpl.id}
-              onClick={() => setCreating(true)}
+              onClick={() => { setPreset(tpl.id); setCreating(true); }}
               className="flex-none w-56 text-left bg-card border border-line rounded-tile p-3.5 hover:-translate-y-0.5 hover:shadow-pill transition-all"
             >
               <Icon name={tpl.icon} size={17} className="mb-2 text-muted-foreground" />
@@ -154,13 +155,19 @@ export default function BoardView({ personal }: { personal: boolean }) {
               <div className="text-[11px] text-muted-foreground mt-1">
                 {tpl.steps.length} подзадач · {tpl.hint}
               </div>
+              {tpl.owner && (
+                <div className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-1">
+                  <Icon name="UserRound" size={11} />
+                  {tpl.owner}
+                </div>
+              )}
             </button>
           ))}
         </div>
       </section>
 
       <TaskDialog task={open} onClose={() => setOpen(null)} />
-      <NewTaskDialog open={creating} onOpenChange={setCreating} personal={personal} />
+      <NewTaskDialog open={creating} onOpenChange={setCreating} personal={personal} presetTemplate={preset} />
     </div>
   );
 }
