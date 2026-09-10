@@ -1,3 +1,5 @@
+import { daysLeft } from '@/lib/dates';
+
 export type ColumnId = 'new' | 'progress' | 'done';
 export type Priority = 'critical' | 'high' | 'normal' | 'low';
 export type Cover = 'none' | 'flame' | 'ocean' | 'herb' | 'grape';
@@ -143,9 +145,10 @@ export const coverClasses: Record<Cover, string> = {
 /** Цветовой стикер дедлайна: горит / скоро / в порядке */
 export function deadlineTone(deadline: string, column: ColumnId) {
   if (column === 'done') return 'done' as const;
-  const day = Number(deadline.slice(0, 2));
-  if (day <= 14) return 'hot' as const;
-  if (day <= 22) return 'soon' as const;
+  const left = daysLeft(deadline);
+  if (left === null) return 'done' as const;
+  if (left <= 3) return 'hot' as const;
+  if (left <= 10) return 'soon' as const;
   return 'done' as const;
 }
 

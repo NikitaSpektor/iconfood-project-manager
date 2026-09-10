@@ -17,6 +17,7 @@ import {
   type ColumnId,
   type Task,
 } from '@/data/workspace';
+import { deadlineLabel } from '@/lib/dates';
 import { useWorkspace } from '@/hooks/use-workspace';
 import TaskComments from './TaskComments';
 import TaskAttachments from './TaskAttachments';
@@ -62,6 +63,7 @@ export default function TaskDialog({
                 )}
               >
                 {priorityLabels[live.priority]} · {live.deadline}
+                {live.column !== 'done' && ` · ${deadlineLabel(live.deadline)}`}
               </span>
               <span className="rounded-full bg-surface border border-line px-2.5 py-1 text-[11px] text-muted-foreground">
                 {live.restaurant}

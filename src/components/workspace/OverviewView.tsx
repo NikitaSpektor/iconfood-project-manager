@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Icon from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/hooks/use-workspace';
@@ -10,6 +10,7 @@ import {
   type ColumnId,
   type Task,
 } from '@/data/workspace';
+import { MONTHS_NOM, formatClock, formatFullDate } from '@/lib/dates';
 import TaskDialog from './TaskDialog';
 import type { ViewId } from './TopNav';
 
@@ -25,6 +26,13 @@ export default function OverviewView({ onGo }: { onGo: (v: ViewId) => void }) {
   const { tasks, user } = useWorkspace();
   const [open, setOpen] = useState<Task | null>(null);
 
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(id);
+  }, []);
+
   const firstName = user.name.split(' ')[0];
   const personal = tasks.filter((t) => t.personal).slice(0, 5);
   const columns: ColumnId[] = ['new', 'progress', 'done'];
@@ -33,7 +41,7 @@ export default function OverviewView({ onGo }: { onGo: (v: ViewId) => void }) {
     <>
       <div className="flex justify-end items-center gap-2 text-muted-foreground text-[13px] flex-none px-2 pb-2.5 animate-fade-in">
         <i className="border-l-[6px] border-l-bar border-y-4 border-y-transparent" />
-        Смена 9 сентября, 30 участников
+        {formatFullDate(now)}, {formatClock(now)}
       </div>
 
       <div className="grid gap-3.5 lg:grid-cols-[46fr_54fr] lg:grid-rows-[1.02fr_1fr] flex-1 min-h-0">
@@ -136,7 +144,7 @@ export default function OverviewView({ onGo }: { onGo: (v: ViewId) => void }) {
           <section className="bento p-6 sm:p-7 overflow-hidden animate-fade-in [animation-delay:.21s]">
             <div className="eyebrow mb-4">
               <i className="h-2.5 w-2.5 rounded-[3px] bg-bar" />
-              Гант · сентябрь
+              Гант · {MONTHS_NOM[now.getMonth()]}
             </div>
             <div className="flex flex-col gap-2.5">
               {ganttRows.map((r) => (

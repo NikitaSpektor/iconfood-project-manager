@@ -5,9 +5,7 @@ import { useWorkspace } from '@/hooks/use-workspace';
 import { deadlineTone, toneClasses, type Task } from '@/data/workspace';
 import TaskDialog from './TaskDialog';
 import ScopeFilters, { useDefaultPlace, useScopeFilter } from './ScopeFilters';
-
-const days = Array.from({ length: 30 }, (_, i) => i + 1);
-const TODAY = 9;
+import { MONTHS_GEN, MONTHS_NOM, daysInMonth, today } from '@/lib/dates';
 
 export default function GanttView() {
   const { tasks } = useWorkspace();
@@ -17,6 +15,13 @@ export default function GanttView() {
   useDefaultPlace(setPlace);
 
   const rows = useScopeFilter(tasks, place, owner);
+
+  const now = today();
+  const month = now.getMonth();
+  const year = now.getFullYear();
+  const total = daysInMonth(year, month);
+  const days = Array.from({ length: total }, (_, i) => i + 1);
+  const TODAY = now.getDate();
 
   const tracks = useMemo(() => {
     const map = new Map<string, Task[]>();
@@ -30,9 +35,9 @@ export default function GanttView() {
     <div className="flex flex-col gap-3.5 flex-1 min-h-0">
       <section className="bento p-4 sm:p-5 flex flex-wrap items-center gap-3 animate-fade-in">
         <div className="mr-auto">
-          <div className="font-head font-semibold text-[14px]">Диаграмма Ганта · сентябрь 2026</div>
+          <div className="font-head font-semibold text-[14px]">Диаграмма Ганта · {MONTHS_NOM[month]} {year}</div>
           <div className="text-[12px] text-muted-foreground">
-            Красная линия — сегодня, {TODAY} сентября · {rows.length} задач
+            Линия — сегодня, {TODAY} {MONTHS_GEN[month]} · {rows.length} задач
             {place !== 'all' && ` · ${place}`}
             {owner !== 'all' && ` · ${owner}`}
           </div>
@@ -97,7 +102,7 @@ export default function GanttView() {
                         />
                         <div
                           className="absolute -inset-y-1 w-[1.5px] bg-primary"
-                          style={{ left: `${((TODAY - 1) / 30) * 100}%` }}
+                          style={{ left: `${((TODAY - 1) / total) * 100}%` }}
                         />
                       </div>
                     </div>

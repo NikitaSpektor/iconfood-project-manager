@@ -27,6 +27,7 @@ import {
 } from '@/data/workspace';
 import { useWorkspace } from '@/hooks/use-workspace';
 import { fetchMembers } from '@/lib/api';
+import { deadlineLabel, formatDeadline, isoToday } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 
 const covers: Cover[] = ['none', 'flame', 'ocean', 'herb', 'grape'];
@@ -81,8 +82,8 @@ export default function NewTaskDialog({
       setError('Название задачи — минимум 4 символа');
       return;
     }
-    if (!/^\d{2}\.\d{2}$/.test(deadline)) {
-      setError('Дедлайн в формате ДД.ММ, например 24.09');
+    if (!deadline) {
+      setError('Выберите дату дедлайна');
       return;
     }
     setError('');
@@ -93,7 +94,7 @@ export default function NewTaskDialog({
       column: 'new',
       priority,
       cover,
-      deadline: `${deadline.slice(0, 2)} сентября`,
+      deadline: formatDeadline(new Date(deadline)),
       assignee,
       watchers: [],
       template: tpl?.name,
@@ -187,14 +188,20 @@ export default function NewTaskDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="nt-deadline">Дедлайн (ДД.ММ)</Label>
+              <Label htmlFor="nt-deadline">Дедлайн</Label>
               <Input
                 id="nt-deadline"
+                type="date"
                 value={deadline}
+                min={isoToday()}
                 onChange={(e) => setDeadline(e.target.value)}
-                placeholder="24.09"
                 className="rounded-xl"
               />
+              {deadline && (
+                <p className="text-[11px] text-muted-foreground">
+                  {deadlineLabel(formatDeadline(new Date(deadline)))}
+                </p>
+              )}
             </div>
           </div>
 

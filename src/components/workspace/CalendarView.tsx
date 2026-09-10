@@ -5,12 +5,9 @@ import { useWorkspace } from '@/hooks/use-workspace';
 import { deadlineTone, toneClasses, type Task } from '@/data/workspace';
 import TaskDialog from './TaskDialog';
 import ScopeFilters, { useDefaultPlace, useScopeFilter } from './ScopeFilters';
+import { MONTHS_NOM, daysInMonth, monthLead, parseDeadline, today } from '@/lib/dates';
 
 const weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
-// 1 сентября 2026 — вторник => один пустой слот в начале
-const LEAD = 1;
-const DAYS = 30;
-const TODAY = 9;
 
 export default function CalendarView() {
   const { tasks } = useWorkspace();
@@ -21,20 +18,31 @@ export default function CalendarView() {
 
   const rows = useScopeFilter(tasks, place, owner);
 
+  const now = today();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const LEAD = monthLead(year, month);
+  const DAYS = daysInMonth(year, month);
+  const TODAY = now.getDate();
+
   const byDay = useMemo(() => {
     const map = new Map<number, Task[]>();
     rows.forEach((t) => {
-      const d = Number(t.deadline.slice(0, 2));
+      const due = parseDeadline(t.deadline);
+      if (!due || due.getMonth() !== month || due.getFullYear() !== year) return;
+      const d = due.getDate();
       map.set(d, [...(map.get(d) ?? []), t]);
     });
     return map;
-  }, [rows]);
+  }, [rows, month, year]);
 
   return (
     <div className="flex flex-col gap-3.5 flex-1 min-h-0">
       <section className="bento p-4 sm:p-5 flex flex-wrap items-center gap-3 animate-fade-in">
         <div className="mr-auto">
-          <div className="font-head font-semibold text-[14px]">Календарь дедлайнов · сентябрь</div>
+          <div className="font-head font-semibold text-[14px]">
+            Календарь дедлайнов · {MONTHS_NOM[month]} {year}
+          </div>
           <div className="text-[12px] text-muted-foreground">
             {rows.length} задач
             {place !== 'all' && ` · ${place}`}
@@ -111,10 +119,10 @@ export default function CalendarView() {
 
         <div className="mt-4 pt-3.5 border-t border-line flex flex-wrap items-center gap-4 text-[12px] text-muted-foreground">
           <span className="flex items-center gap-1.5">
-            <i className="h-2.5 w-2.5 rounded-[3px] bg-flag-hot" />до 14 сентября — горит
+            <i className="h-2.5 w-2.5 rounded-[3px] bg-flag-hot" />осталось до 3 дней — горит
           </span>
           <span className="flex items-center gap-1.5">
-            <i className="h-2.5 w-2.5 rounded-[3px] bg-flag-soon" />до 22 сентября — скоро
+            <i className="h-2.5 w-2.5 rounded-[3px] bg-flag-soon" />до 10 дней — скоро
           </span>
           <span className="flex items-center gap-1.5">
             <i className="h-2.5 w-2.5 rounded-[3px] bg-flag-done" />запас есть или закрыта

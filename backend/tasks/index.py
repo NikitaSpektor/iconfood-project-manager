@@ -184,10 +184,17 @@ def deadline_date(deadline: str, today):
     month = MONTHS.get(parts[1].lower())
     if not month:
         return None
+    year = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else today.year
     try:
-        return date(today.year, month, int(parts[0]))
+        due = date(year, month, int(parts[0]))
     except ValueError:
         return None
+    if len(parts) < 3 and (due - today).days < -180:
+        try:
+            due = date(year + 1, month, int(parts[0]))
+        except ValueError:
+            return None
+    return due
 
 
 def announce_overdue(cur):

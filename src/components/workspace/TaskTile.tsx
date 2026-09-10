@@ -5,6 +5,7 @@ import {
   toneClasses,
   type Task,
 } from '@/data/workspace';
+import { deadlineLabel } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 
 interface TaskTileProps {
@@ -60,7 +61,7 @@ export default function TaskTile({ task, onOpen, selected }: TaskTileProps) {
         {(task.priority === 'critical' || task.priority === 'high') && (
           <span className={cn('flex items-center gap-1 text-[10px] font-medium', tone.text)}>
             <Icon name="Flame" size={11} />
-            {task.deadline}
+            {task.column === 'done' ? task.deadline : deadlineLabel(task.deadline)}
           </span>
         )}
       </div>

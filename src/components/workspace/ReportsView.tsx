@@ -11,6 +11,7 @@ import {
   toneClasses,
   type ColumnId,
 } from '@/data/workspace';
+import { parseDeadline } from '@/lib/dates';
 import { toast } from '@/hooks/use-toast';
 import ScopeFilters, { useDefaultPlace, useScopeFilter } from './ScopeFilters';
 import { exportReport } from '@/lib/export-report';
@@ -74,9 +75,9 @@ export default function ReportsView() {
     const names = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
     const counts = names.map(() => 0);
     rows.forEach((t) => {
-      const day = Number(t.deadline.slice(0, 2));
-      if (!day) return;
-      counts[(day + 1) % 7] += 1;
+      const due = parseDeadline(t.deadline);
+      if (!due) return;
+      counts[(due.getDay() + 6) % 7] += 1;
     });
     const max = Math.max(...counts, 1);
     return names.map((day, i) => ({ day, value: counts[i], pct: Math.round((counts[i] / max) * 100) }));
