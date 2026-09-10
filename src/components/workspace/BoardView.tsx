@@ -143,7 +143,7 @@ export default function BoardView({ personal }: { personal: boolean }) {
           <i className="h-2.5 w-2.5 rounded-[3px] bg-bar" />
           Шаблоны задач
         </div>
-        <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-0.5">
+        <div className="flex gap-2.5 overflow-x-auto thin-scrollbar pb-2">
           {TEMPLATES.map((tpl) => (
             <button
               key={tpl.id}
