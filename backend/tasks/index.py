@@ -554,6 +554,25 @@ def handler(event: dict, context) -> dict:
         if column == 'done' and before and before[0] != 'done':
             announce_done(cur, task_id, user['name'])
         conn.commit()
+    elif action == 'add_subtasks':
+        task_id = int(body.get('taskId'))
+        titles = [str(t).strip()[:300] for t in (body.get('titles') or []) if str(t).strip()]
+        cur.execute(
+            'SELECT COALESCE(MAX(position), 0) FROM subtasks WHERE task_id = ' + str(task_id)
+        )
+        row = cur.fetchone()
+        start = int(row[0]) if row and row[0] is not None else 0
+        for i, t in enumerate(titles):
+            cur.execute(
+                'INSERT INTO subtasks (task_id, title, done, position) VALUES ('
+                + str(task_id) + ', ' + q(t) + ', FALSE, ' + str(start + i + 1) + ')'
+            )
+        conn.commit()
+    elif action == 'delete_subtask':
+        cur.execute(
+            'UPDATE subtasks SET archived = TRUE WHERE id = ' + str(int(body.get('subtaskId')))
+        )
+        conn.commit()
     elif action == 'toggle':
         cur.execute('UPDATE subtasks SET done = NOT done WHERE id = ' + str(int(body.get('subtaskId'))))
         conn.commit()

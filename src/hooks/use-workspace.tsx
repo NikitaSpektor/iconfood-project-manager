@@ -27,6 +27,8 @@ interface WorkspaceValue {
   user: ApiUser;
   moveTask: (taskId: string, column: ColumnId) => void;
   toggleSubtask: (taskId: string, subtaskId: string) => void;
+  addSubtasks: (taskId: string, titles: string[]) => Promise<void>;
+  removeSubtask: (taskId: string, subtaskId: string) => Promise<void>;
   createTask: (task: Omit<Task, 'id'>) => void;
   addComment: (taskId: string, text: string) => Promise<void>;
   attachFile: (taskId: string, file: File) => Promise<void>;
@@ -98,6 +100,27 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
     taskAction({ action: 'toggle', taskId, subtaskId })
       .then(apply)
       .catch(() => toast({ title: 'Не удалось сохранить', variant: 'destructive' }));
+  }, [apply]);
+
+  const addSubtasks = useCallback(async (taskId: string, titles: string[]) => {
+    try {
+      apply(await taskAction({ action: 'add_subtasks', taskId, titles }));
+    } catch {
+      toast({ title: 'Не удалось добавить подзадачи', variant: 'destructive' });
+    }
+  }, [apply]);
+
+  const removeSubtask = useCallback(async (taskId: string, subtaskId: string) => {
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === taskId ? { ...t, subtasks: t.subtasks.filter((s) => s.id !== subtaskId) } : t,
+      ),
+    );
+    try {
+      apply(await taskAction({ action: 'delete_subtask', taskId, subtaskId }));
+    } catch {
+      toast({ title: 'Не удалось удалить подзадачу', variant: 'destructive' });
+    }
   }, [apply]);
 
   const createTask = useCallback((task: Omit<Task, 'id'>) => {
@@ -254,6 +277,8 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
       user,
       moveTask,
       toggleSubtask,
+      addSubtasks,
+      removeSubtask,
       createTask,
       addComment,
       attachFile,
@@ -274,6 +299,8 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
       user,
       moveTask,
       toggleSubtask,
+      addSubtasks,
+      removeSubtask,
       createTask,
       addComment,
       attachFile,

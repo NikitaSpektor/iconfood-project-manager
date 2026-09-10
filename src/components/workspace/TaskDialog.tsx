@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -19,6 +20,8 @@ import {
 } from '@/data/workspace';
 import { deadlineLabel } from '@/lib/dates';
 import { useWorkspace } from '@/hooks/use-workspace';
+import { suggestSubtasks } from '@/lib/api';
+import { localSubtaskHints } from '@/lib/subtask-hints';
 import TaskComments from './TaskComments';
 import TaskAttachments from './TaskAttachments';
 import { cn } from '@/lib/utils';
@@ -32,8 +35,29 @@ export default function TaskDialog({
   task: Task | null;
   onClose: () => void;
 }) {
-  const { toggleSubtask, moveTask, tasks } = useWorkspace();
+  const { toggleSubtask, addSubtasks, removeSubtask, moveTask, tasks } = useWorkspace();
   const live = task ? tasks.find((t) => t.id === task.id) ?? task : null;
+  const [aiLoading, setAiLoading] = useState(false);
+
+  async function askAssistant() {
+    if (!live) return;
+    setAiLoading(true);
+    let list: string[];
+    try {
+      list = await suggestSubtasks({
+        title: live.title,
+        restaurant: live.restaurant,
+        priority: priorityLabels[live.priority],
+        deadline: live.deadline,
+      });
+    } catch {
+      list = localSubtaskHints(live.title, live.restaurant);
+    }
+    const existing = new Set(live.subtasks.map((s) => s.title.trim().toLowerCase()));
+    const fresh = list.filter((s) => !existing.has(s.trim().toLowerCase()));
+    if (fresh.length) await addSubtasks(live.id, fresh);
+    setAiLoading(false);
+  }
 
   if (!live) return null;
 
@@ -90,15 +114,32 @@ export default function TaskDialog({
             </span>
           </div>
 
-          {live.subtasks.length > 0 && (
-            <div className="mt-5">
-              <div className="eyebrow mb-3">
+          <div className="mt-5">
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <div className="eyebrow">
                 <i className="h-2.5 w-2.5 rounded-[3px] bg-bar" />
                 Подзадачи
               </div>
-              <ul className="space-y-2.5 max-h-52 overflow-y-auto thin-scrollbar">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={aiLoading}
+                onClick={askAssistant}
+                className="rounded-full h-8 px-3 text-[12px] gap-1.5"
+              >
+                <Icon
+                  name={aiLoading ? 'LoaderCircle' : 'Sparkles'}
+                  size={13}
+                  className={aiLoading ? 'animate-spin' : ''}
+                />
+                {aiLoading ? 'Думаю…' : 'Предложить шаги'}
+              </Button>
+            </div>
+            {live.subtasks.length > 0 ? (
+              <ul className="space-y-2.5 max-h-52 overflow-y-auto thin-scrollbar pr-1">
                 {live.subtasks.map((s) => (
-                  <li key={s.id} className="flex items-start gap-3">
+                  <li key={s.id} className="flex items-start gap-3 group">
                     <Checkbox
                       id={`${live.id}-${s.id}`}
                       checked={s.done}
@@ -108,17 +149,29 @@ export default function TaskDialog({
                     <label
                       htmlFor={`${live.id}-${s.id}`}
                       className={cn(
-                        'text-sm leading-snug cursor-pointer',
+                        'text-sm leading-snug cursor-pointer flex-1',
                         s.done && 'line-through text-muted-foreground',
                       )}
                     >
                       {s.title}
                     </label>
+                    <button
+                      type="button"
+                      onClick={() => removeSubtask(live.id, s.id)}
+                      className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary mt-0.5"
+                      aria-label="Удалить подзадачу"
+                    >
+                      <Icon name="X" size={14} />
+                    </button>
                   </li>
                 ))}
               </ul>
-            </div>
-          )}
+            ) : (
+              <p className="text-[12px] text-muted-foreground">
+                Пока шагов нет — помощник подскажет, с чего начать.
+              </p>
+            )}
+          </div>
 
           <div className="mt-5 rounded-tile bg-surface border border-line p-3.5">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
