@@ -222,9 +222,20 @@ export default function ChatView() {
           {active.messages.map((m) =>
             m.system ? (
               <div key={m.id} className="flex justify-center">
-                <div className="max-w-[85%] rounded-2xl border border-line bg-surface px-3.5 py-2.5">
+                <div
+                  className={cn(
+                    'max-w-[85%] rounded-2xl border px-3.5 py-2.5',
+                    m.text.startsWith('Задача закрыта')
+                      ? 'border-flag-done/40 bg-flag-done/5'
+                      : 'border-line bg-surface',
+                  )}
+                >
                   <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground mb-1">
-                    <Icon name="ClipboardCheck" size={12} />
+                    <Icon
+                      name={m.text.startsWith('Задача закрыта') ? 'CircleCheck' : 'ClipboardCheck'}
+                      size={12}
+                      className={m.text.startsWith('Задача закрыта') ? 'text-flag-done' : ''}
+                    />
                     {m.author} · {m.time}
                   </div>
                   <div className="text-[12px] leading-snug whitespace-pre-line">{m.text}</div>

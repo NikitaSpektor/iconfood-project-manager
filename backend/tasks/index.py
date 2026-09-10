@@ -125,6 +125,30 @@ def announce_task(cur, actor, title, restaurant, deadline, assignee, template, s
     )
 
 
+def announce_done(cur, task_id, actor):
+    """Сообщает в канал подразделения, что задача закрыта."""
+    cur.execute(
+        'SELECT title, restaurant, assignee, owner_login FROM tasks WHERE id = ' + str(task_id)
+    )
+    row = cur.fetchone()
+    if not row:
+        return
+    title, restaurant, assignee, owner_login = row
+    if owner_login or not restaurant:
+        return
+    cur.execute('SELECT id FROM channels WHERE unit = ' + q(restaurant) + ' AND archived = FALSE')
+    channel = cur.fetchone()
+    if not channel:
+        return
+    lines = ['Задача закрыта: ' + title, 'Закрыл: ' + actor]
+    if assignee and assignee != actor:
+        lines.append('Ответственный: ' + assignee)
+    cur.execute(
+        'INSERT INTO messages (channel_id, author, author_login, text) VALUES ('
+        + str(channel[0]) + ', ' + q(actor) + ", 'system', " + q('\n'.join(lines)) + ')'
+    )
+
+
 def notify_assignee(cur, task_id, actor, kind, text):
     cur.execute('SELECT title, assignee FROM tasks WHERE id = ' + str(task_id))
     row = cur.fetchone()
@@ -440,7 +464,13 @@ def handler(event: dict, context) -> dict:
         cur.execute('UPDATE notifications SET is_read = TRUE WHERE recipient_login = ' + q(user['login']))
         conn.commit()
     elif action == 'move':
-        cur.execute('UPDATE tasks SET column_id = ' + q(body.get('column')) + ' WHERE id = ' + str(int(body.get('taskId'))))
+        task_id = int(body.get('taskId'))
+        column = str(body.get('column'))
+        cur.execute('SELECT column_id FROM tasks WHERE id = ' + str(task_id))
+        before = cur.fetchone()
+        cur.execute('UPDATE tasks SET column_id = ' + q(column) + ' WHERE id = ' + str(task_id))
+        if column == 'done' and before and before[0] != 'done':
+            announce_done(cur, task_id, user['name'])
         conn.commit()
     elif action == 'toggle':
         cur.execute('UPDATE subtasks SET done = NOT done WHERE id = ' + str(int(body.get('subtaskId'))))
