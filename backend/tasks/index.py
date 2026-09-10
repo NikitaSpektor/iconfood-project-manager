@@ -2,7 +2,10 @@ import base64
 import json
 import os
 import re
+import smtplib
 import uuid
+from email.header import Header
+from email.mime.text import MIMEText
 
 import boto3
 import psycopg2
@@ -33,6 +36,70 @@ def current_user(cur, event):
     )
     row = cur.fetchone()
     return {'login': row[0], 'name': row[1]} if row else None
+
+
+def send_email(to_email: str, subject: str, html: str) -> None:
+    host = os.environ.get('SMTP_HOST', '')
+    user = os.environ.get('SMTP_USER', '')
+    password = os.environ.get('SMTP_PASSWORD', '')
+    if not host or not user or not password or not to_email:
+        return
+    sender = os.environ.get('SMTP_FROM', user)
+    port = int(os.environ.get('SMTP_PORT', '465'))
+    msg = MIMEText(html, 'html', 'utf-8')
+    msg['Subject'] = Header(subject, 'utf-8')
+    msg['From'] = sender
+    msg['To'] = to_email
+    try:
+        if port == 465:
+            server = smtplib.SMTP_SSL(host, port, timeout=8)
+        else:
+            server = smtplib.SMTP(host, port, timeout=8)
+            server.starttls()
+        server.login(user, password)
+        server.sendmail(sender, [to_email], msg.as_string())
+        server.quit()
+    except Exception:
+        return
+
+
+def notify_new_task(cur, task_id, actor, title, restaurant, deadline, template, assignee, subtasks):
+    if not assignee or assignee == actor:
+        return
+    cur.execute('SELECT login, email FROM users WHERE name = ' + q(assignee))
+    target = cur.fetchone()
+    if not target:
+        return
+    head = template or 'Новая задача'
+    cur.execute(
+        'INSERT INTO notifications (recipient_login, task_id, task_title, kind, actor, text) VALUES ('
+        + q(target[0]) + ', ' + str(task_id) + ', ' + q(title) + ', ' + q('task') + ', '
+        + q(actor) + ', ' + q(head[:300]) + ')'
+    )
+    steps = ''.join(
+        '<li style="margin:4px 0;color:#333">' + str(s.get('title', ''))[:200] + '</li>'
+        for s in (subtasks or [])
+    )
+    steps_block = (
+        '<p style="margin:18px 0 6px;font-weight:600;color:#111">Подзадачи</p>'
+        '<ol style="margin:0;padding-left:20px;font-size:14px">' + steps + '</ol>'
+        if steps else ''
+    )
+    html = (
+        '<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px">'
+        '<p style="font-size:15px;color:#111">Здравствуйте, ' + assignee.split(' ')[0] + '!</p>'
+        '<p style="font-size:14px;color:#333">' + actor + ' назначил вас ответственным по задаче.</p>'
+        '<div style="border:1px solid #e5e5e5;border-radius:14px;padding:16px 18px;margin:16px 0">'
+        '<p style="margin:0 0 10px;font-size:17px;font-weight:600;color:#111">' + title + '</p>'
+        '<p style="margin:4px 0;font-size:14px;color:#444">Ресторан: <b>' + (restaurant or '—') + '</b></p>'
+        '<p style="margin:4px 0;font-size:14px;color:#444">Дедлайн: <b>' + (deadline or '—') + '</b></p>'
+        + ('<p style="margin:4px 0;font-size:14px;color:#444">Шаблон: <b>' + template + '</b></p>' if template else '')
+        + steps_block +
+        '</div>'
+        '<p style="font-size:13px;color:#888">Задача уже на доске ICONFOOD — откройте рабочее пространство, чтобы начать.</p>'
+        '</div>'
+    )
+    send_email(target[1], 'Новая задача: ' + title, html)
 
 
 def notify_assignee(cur, task_id, actor, kind, text):
@@ -399,11 +466,16 @@ def handler(event: dict, context) -> dict:
             + str(int(body.get('ganttStart', 10))) + ', ' + str(int(body.get('ganttSpan', 30))) + ', ' + q(owner) + ') RETURNING id'
         )
         new_id = cur.fetchone()[0]
-        for i, s in enumerate(body.get('subtasks') or []):
+        subtasks = body.get('subtasks') or []
+        for i, s in enumerate(subtasks):
             cur.execute(
                 'INSERT INTO subtasks (task_id, title, done, position) VALUES ('
                 + str(new_id) + ', ' + q(s.get('title')) + ', false, ' + str(i) + ')'
             )
+        notify_new_task(
+            cur, new_id, user['name'], str(body.get('title', '')), str(body.get('restaurant', '')),
+            str(body.get('deadline', '')), body.get('template'), str(body.get('assignee', '')), subtasks,
+        )
         conn.commit()
 
     tasks = load_tasks(cur, user['login'])

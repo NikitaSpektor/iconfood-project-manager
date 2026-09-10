@@ -11,7 +11,7 @@ export interface Notification {
   id: string;
   taskId: string;
   taskTitle: string;
-  kind: 'comment' | 'file';
+  kind: 'comment' | 'file' | 'task';
   actor: string;
   text: string;
   read: boolean;
