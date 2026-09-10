@@ -89,9 +89,9 @@ export default function NewTaskDialog({
       ganttStart: 30,
       ganttSpan: 30,
       subtasks: tpl
-        ? Array.from({ length: tpl.steps }, (_, i) => ({
+        ? tpl.steps.map((step, i) => ({
             id: `s${i}`,
-            title: `${tpl.name}: шаг ${i + 1}`,
+            title: step,
             done: false,
           }))
         : [],
@@ -195,7 +195,7 @@ export default function NewTaskDialog({
                 <SelectItem value="none">Без шаблона</SelectItem>
                 {TEMPLATES.map((t) => (
                   <SelectItem key={t.id} value={t.id}>
-                    {t.name} · {t.steps} подзадач
+                    {t.name} · {t.steps.length} подзадач
                   </SelectItem>
                 ))}
               </SelectContent>

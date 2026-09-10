@@ -152,7 +152,7 @@ export default function BoardView({ personal }: { personal: boolean }) {
               <Icon name={tpl.icon} size={17} className="mb-2 text-muted-foreground" />
               <div className="text-[13px] font-medium">{tpl.name}</div>
               <div className="text-[11px] text-muted-foreground mt-1">
-                {tpl.steps} подзадач · {tpl.hint}
+                {tpl.steps.length} подзадач · {tpl.hint}
               </div>
             </button>
           ))}
