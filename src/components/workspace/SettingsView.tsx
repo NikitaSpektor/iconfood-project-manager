@@ -45,8 +45,8 @@ export default function SettingsView() {
   const [flags, setFlags] = useState(
     Object.fromEntries(notifications.map((n) => [n.id, n.on])) as Record<string, boolean>,
   );
-  const [email, setEmail] = useState('alina.vetrova@iconfood.ru');
-  const [place, setPlace] = useState(RESTAURANTS[0]);
+  const [email, setEmail] = useState(user.email);
+  const [place, setPlace] = useState(user.restaurant || RESTAURANTS[0]);
 
   return (
     <div className="grid gap-3.5 lg:grid-cols-2 flex-1 min-h-0 overflow-y-auto no-scrollbar">
