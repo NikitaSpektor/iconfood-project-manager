@@ -2,6 +2,7 @@ import urls from '../../backend/func2url.json';
 
 export const AUTH_URL = urls.auth;
 export const TASKS_URL = urls.tasks;
+export const SUBTASKS_AI_URL = (urls as Record<string, string>).subtasks || '';
 
 const TOKEN_KEY = 'iconfood_token';
 
@@ -100,4 +101,17 @@ export async function fetchTasks() {
 
 export async function taskAction(payload: Record<string, unknown>) {
   return request(TASKS_URL, { method: 'POST', body: JSON.stringify(payload) });
+}
+export async function suggestSubtasks(payload: {
+  title: string;
+  restaurant: string;
+  priority?: string;
+  deadline?: string;
+}) {
+  if (!SUBTASKS_AI_URL) throw new Error('Помощник пока недоступен');
+  const data = await request(SUBTASKS_AI_URL, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+  return (data.steps || []) as string[];
 }

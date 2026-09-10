@@ -1,0 +1,17 @@
+{
+  "tests": [
+    {
+      "name": "Без токена доступ закрыт",
+      "method": "POST",
+      "path": "/",
+      "body": {"title": "Смена меню"},
+      "expectedStatus": 401
+    },
+    {
+      "name": "GET не поддерживается",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 405
+    }
+  ]
+}

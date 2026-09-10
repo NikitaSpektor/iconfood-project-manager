@@ -26,7 +26,7 @@ import {
   type Priority,
 } from '@/data/workspace';
 import { useWorkspace } from '@/hooks/use-workspace';
-import { fetchMembers } from '@/lib/api';
+import { fetchMembers, suggestSubtasks } from '@/lib/api';
 import { deadlineLabel, formatDeadline, isoToday } from '@/lib/dates';
 import { cn } from '@/lib/utils';
 
@@ -53,11 +53,16 @@ export default function NewTaskDialog({
   const [deadline, setDeadline] = useState('');
   const [cover, setCover] = useState<Cover>('flame');
   const [template, setTemplate] = useState('none');
+  const [steps, setSteps] = useState<string[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiNote, setAiNote] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (!open) return;
     setTemplate(presetTemplate);
+    setAiNote('');
+    setSteps(TEMPLATES.find((t) => t.id === presetTemplate)?.steps ?? []);
     const owner = TEMPLATES.find((t) => t.id === presetTemplate)?.owner;
     fetchMembers()
       .then((data) => {
@@ -71,9 +76,42 @@ export default function NewTaskDialog({
   function pickTemplate(id: string) {
     setTemplate(id);
     const tpl = TEMPLATES.find((t) => t.id === id);
+    setSteps(tpl?.steps ? [...tpl.steps] : []);
+    setAiNote('');
     if (!tpl?.owner) return;
     const match = people.find((m) => m.name === tpl.owner);
     if (match) setAssignee(match.name);
+  }
+
+  async function askAssistant() {
+    if (title.trim().length < 4) {
+      setAiNote('Сначала впишите название задачи');
+      return;
+    }
+    setAiLoading(true);
+    setAiNote('');
+    try {
+      const list = await suggestSubtasks({
+        title: title.trim(),
+        restaurant,
+        priority: priorityLabels[priority],
+        deadline: deadline ? formatDeadline(new Date(deadline)) : '',
+      });
+      setSteps((prev) => [...prev, ...list]);
+      setAiNote(`Ассистент предложил ${list.length} шагов — отредактируйте или удалите лишние`);
+    } catch (e) {
+      setAiNote(e instanceof Error ? e.message : 'Не удалось получить подсказку');
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  function editStep(i: number, value: string) {
+    setSteps((prev) => prev.map((s, idx) => (idx === i ? value : s)));
+  }
+
+  function removeStep(i: number) {
+    setSteps((prev) => prev.filter((_, idx) => idx !== i));
   }
 
   function submit(e: React.FormEvent) {
@@ -102,16 +140,15 @@ export default function NewTaskDialog({
       track: 'Новое',
       ganttStart: 30,
       ganttSpan: 30,
-      subtasks: tpl
-        ? tpl.steps.map((step, i) => ({
-            id: `s${i}`,
-            title: step,
-            done: false,
-          }))
-        : [],
+      subtasks: steps
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((step, i) => ({ id: `s${i}`, title: step, done: false })),
     });
     setTitle('');
     setDeadline('');
+    setSteps([]);
+    setAiNote('');
     onOpenChange(false);
   }
 
@@ -225,6 +262,61 @@ export default function NewTaskDialog({
                 Ответственный по умолчанию — {TEMPLATES.find((t) => t.id === template)?.owner}
               </p>
             )}
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <Label>Подзадачи {steps.length > 0 && `· ${steps.length}`}</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={aiLoading}
+                onClick={askAssistant}
+                className="rounded-full h-8 px-3 text-[12px] gap-1.5"
+              >
+                <Icon
+                  name={aiLoading ? 'LoaderCircle' : 'Sparkles'}
+                  size={13}
+                  className={aiLoading ? 'animate-spin' : ''}
+                />
+                {aiLoading ? 'Думаю…' : 'Предложить подзадачи'}
+              </Button>
+            </div>
+
+            {steps.length > 0 && (
+              <div className="space-y-1.5 max-h-52 overflow-y-auto thin-scrollbar pr-1">
+                {steps.map((step, i) => (
+                  <div key={i} className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-muted-foreground w-4 text-right">{i + 1}</span>
+                    <Input
+                      value={step}
+                      onChange={(e) => editStep(i, e.target.value)}
+                      className="rounded-xl h-9 text-[13px]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeStep(i)}
+                      className="h-9 w-9 flex-none rounded-xl border border-line text-muted-foreground hover:text-primary hover:border-primary transition-colors flex items-center justify-center"
+                      aria-label="Удалить подзадачу"
+                    >
+                      <Icon name="X" size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setSteps((prev) => [...prev, ''])}
+              className="text-[12px] text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1"
+            >
+              <Icon name="Plus" size={13} />
+              Добавить шаг вручную
+            </button>
+
+            {aiNote && <p className="text-[11px] text-muted-foreground">{aiNote}</p>}
           </div>
 
           <div className="space-y-2">
