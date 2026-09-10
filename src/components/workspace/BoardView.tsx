@@ -123,7 +123,7 @@ export default function BoardView({ personal }: { personal: boolean }) {
                 <span className="text-[12px] text-muted-foreground">{list.length}</span>
               </div>
 
-              <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar pr-0.5">
+              <div className="flex-1 min-h-0 overflow-y-auto thin-scrollbar pr-1.5">
                 {list.map((t) => (
                   <TaskTile key={t.id} task={t} onOpen={setOpen} selected={t.priority === 'critical'} />
                 ))}

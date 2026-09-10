@@ -72,7 +72,7 @@ export default function GanttView() {
           </div>
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar space-y-5 pr-1">
+        <div className="flex-1 min-h-0 overflow-y-auto thin-scrollbar space-y-5 pr-1.5">
           {tracks.map(([track, list]) => (
             <div key={track}>
               <div className="eyebrow mb-2.5">

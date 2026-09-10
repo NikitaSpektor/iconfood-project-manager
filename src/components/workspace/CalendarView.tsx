@@ -67,7 +67,7 @@ export default function CalendarView() {
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-1 sm:gap-2 flex-1 min-h-0 overflow-y-auto no-scrollbar auto-rows-fr">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2 flex-1 min-h-0 overflow-y-auto thin-scrollbar auto-rows-fr pr-1">
           {Array.from({ length: LEAD }).map((_, i) => (
             <div key={`lead-${i}`} />
           ))}

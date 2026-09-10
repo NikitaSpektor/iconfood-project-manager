@@ -195,7 +195,7 @@ export default function MembersView() {
           )}
         </div>
 
-        <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar space-y-2 pr-0.5">
+        <div className="flex-1 min-h-0 overflow-y-auto thin-scrollbar space-y-2 pr-1.5">
           {list.length === 0 && (
             <div className="rounded-tile border border-dashed border-line py-12 text-center text-[12px] text-muted-foreground">
               Никого не нашли — попробуйте изменить фильтры
