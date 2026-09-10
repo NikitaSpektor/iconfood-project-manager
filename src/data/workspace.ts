@@ -548,7 +548,7 @@ export const TEMPLATES = [
   },
   {
     id: 'tpl11',
-    owner: 'Марина Глушкова',
+    owner: 'Марина Гаврилова',
     name: 'Программа лояльности',
     icon: 'BadgePercent',
     hint: 'Механика, настройка, обучение, запуск',
