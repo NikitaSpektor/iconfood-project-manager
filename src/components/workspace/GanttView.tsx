@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/hooks/use-workspace';
 import { deadlineTone, toneClasses, type Task } from '@/data/workspace';
 import TaskDialog from './TaskDialog';
+import ScopeFilters, { useDefaultPlace, useScopeFilter } from './ScopeFilters';
 
 const days = Array.from({ length: 30 }, (_, i) => i + 1);
 const TODAY = 9;
@@ -11,12 +12,11 @@ const TODAY = 9;
 export default function GanttView() {
   const { tasks } = useWorkspace();
   const [open, setOpen] = useState<Task | null>(null);
-  const [scope, setScope] = useState<'all' | 'mine'>('all');
+  const [place, setPlace] = useState('all');
+  const [owner, setOwner] = useState('all');
+  useDefaultPlace(setPlace);
 
-  const rows = useMemo(
-    () => (scope === 'mine' ? tasks.filter((t) => t.personal) : tasks),
-    [tasks, scope],
-  );
+  const rows = useScopeFilter(tasks, place, owner);
 
   const tracks = useMemo(() => {
     const map = new Map<string, Task[]>();
@@ -32,23 +32,18 @@ export default function GanttView() {
         <div className="mr-auto">
           <div className="font-head font-semibold text-[14px]">Диаграмма Ганта · сентябрь 2026</div>
           <div className="text-[12px] text-muted-foreground">
-            Красная линия — сегодня, {TODAY} сентября
+            Красная линия — сегодня, {TODAY} сентября · {rows.length} задач
+            {place !== 'all' && ` · ${place}`}
+            {owner !== 'all' && ` · ${owner}`}
           </div>
         </div>
-        <div className="flex items-center gap-1 rounded-full bg-card border border-line p-1">
-          {(['all', 'mine'] as const).map((s) => (
-            <button
-              key={s}
-              onClick={() => setScope(s)}
-              className={cn(
-                'px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-colors',
-                scope === s ? 'bg-surface text-foreground' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {s === 'all' ? 'Весь холдинг' : 'Мои задачи'}
-            </button>
-          ))}
-        </div>
+        <ScopeFilters
+          tasks={tasks}
+          place={place}
+          owner={owner}
+          onPlace={setPlace}
+          onOwner={setOwner}
+        />
         <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <i className="h-2 w-2 rounded-sm bg-flag-hot" />горит

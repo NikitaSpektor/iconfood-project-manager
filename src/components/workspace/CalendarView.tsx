@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/hooks/use-workspace';
 import { deadlineTone, toneClasses, type Task } from '@/data/workspace';
 import TaskDialog from './TaskDialog';
+import ScopeFilters, { useDefaultPlace, useScopeFilter } from './ScopeFilters';
 
 const weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 // 1 сентября 2026 — вторник => один пустой слот в начале
@@ -14,18 +15,20 @@ const TODAY = 9;
 export default function CalendarView() {
   const { tasks } = useWorkspace();
   const [open, setOpen] = useState<Task | null>(null);
-  const [scope, setScope] = useState<'all' | 'mine'>('all');
+  const [place, setPlace] = useState('all');
+  const [owner, setOwner] = useState('all');
+  useDefaultPlace(setPlace);
+
+  const rows = useScopeFilter(tasks, place, owner);
 
   const byDay = useMemo(() => {
     const map = new Map<number, Task[]>();
-    tasks
-      .filter((t) => (scope === 'mine' ? t.personal : true))
-      .forEach((t) => {
-        const d = Number(t.deadline.slice(0, 2));
-        map.set(d, [...(map.get(d) ?? []), t]);
-      });
+    rows.forEach((t) => {
+      const d = Number(t.deadline.slice(0, 2));
+      map.set(d, [...(map.get(d) ?? []), t]);
+    });
     return map;
-  }, [tasks, scope]);
+  }, [rows]);
 
   return (
     <div className="flex flex-col gap-3.5 flex-1 min-h-0">
@@ -33,23 +36,18 @@ export default function CalendarView() {
         <div className="mr-auto">
           <div className="font-head font-semibold text-[14px]">Календарь дедлайнов · сентябрь</div>
           <div className="text-[12px] text-muted-foreground">
-            Цвет стикера показывает, насколько горит срок
+            {rows.length} задач
+            {place !== 'all' && ` · ${place}`}
+            {owner !== 'all' && ` · ${owner}`}
           </div>
         </div>
-        <div className="flex items-center gap-1 rounded-full bg-card border border-line p-1">
-          {(['all', 'mine'] as const).map((s) => (
-            <button
-              key={s}
-              onClick={() => setScope(s)}
-              className={cn(
-                'px-3.5 py-1.5 rounded-full text-[12px] font-medium transition-colors',
-                scope === s ? 'bg-surface text-foreground' : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {s === 'all' ? 'Весь холдинг' : 'Мои задачи'}
-            </button>
-          ))}
-        </div>
+        <ScopeFilters
+          tasks={tasks}
+          place={place}
+          owner={owner}
+          onPlace={setPlace}
+          onOwner={setOwner}
+        />
       </section>
 
       <section className="bento p-4 sm:p-6 flex-1 min-h-0 flex flex-col animate-fade-in [animation-delay:.1s]">

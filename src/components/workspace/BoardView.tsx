@@ -1,18 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/hooks/use-workspace';
 import {
-  RESTAURANTS,
   TEMPLATES,
   columnLabels,
   type ColumnId,
@@ -21,11 +13,12 @@ import {
 import TaskTile from './TaskTile';
 import TaskDialog from './TaskDialog';
 import NewTaskDialog from './NewTaskDialog';
+import ScopeFilters, { useDefaultPlace } from './ScopeFilters';
 
 const columns: ColumnId[] = ['new', 'progress', 'done'];
 
 export default function BoardView({ personal }: { personal: boolean }) {
-  const { tasks, moveTask, user } = useWorkspace();
+  const { tasks, moveTask } = useWorkspace();
   const [open, setOpen] = useState<Task | null>(null);
   const [creating, setCreating] = useState(false);
   const [preset, setPreset] = useState('none');
@@ -34,20 +27,7 @@ export default function BoardView({ personal }: { personal: boolean }) {
   const [owner, setOwner] = useState('all');
   const [over, setOver] = useState<ColumnId | null>(null);
 
-  const seesAll = user.role === 'owner';
-
-  useEffect(() => {
-    if (personal) return;
-    setPlace(seesAll ? 'all' : user.restaurant || 'all');
-  }, [personal, seesAll, user.restaurant]);
-
-  const owners = useMemo(
-    () =>
-      Array.from(
-        new Set(tasks.filter((t) => t.personal === personal).map((t) => t.assignee).filter(Boolean)),
-      ).sort((a, b) => a.localeCompare(b, 'ru')),
-    [tasks, personal],
-  );
+  useDefaultPlace(setPlace);
 
   const scope = useMemo(
     () =>
@@ -59,7 +39,6 @@ export default function BoardView({ personal }: { personal: boolean }) {
     [tasks, personal, place, owner, query],
   );
 
-  const filtered = place !== 'all' || owner !== 'all' || query.trim() !== '';
 
   return (
     <div className="flex flex-col gap-3.5 flex-1 min-h-0">
@@ -94,56 +73,13 @@ export default function BoardView({ personal }: { personal: boolean }) {
           />
         </div>
 
-        <Select value={place} onValueChange={setPlace}>
-          <SelectTrigger className="w-[180px] h-9 rounded-full text-[12px] border-line bg-card">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="rounded-2xl max-h-[320px]">
-            <SelectItem value="all" className="text-[13px]">Все подразделения</SelectItem>
-            {RESTAURANTS.map((r) => (
-              <SelectItem key={r} value={r} className="text-[13px]">
-                {r}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={owner} onValueChange={setOwner}>
-          <SelectTrigger className="w-[170px] h-9 rounded-full text-[12px] border-line bg-card">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent className="rounded-2xl max-h-[320px]">
-            <SelectItem value="all" className="text-[13px]">Все ответственные</SelectItem>
-            {user.name && (
-              <SelectItem value={user.name} className="text-[13px]">
-                Мои задачи
-              </SelectItem>
-            )}
-            {owners
-              .filter((o) => o !== user.name)
-              .map((o) => (
-                <SelectItem key={o} value={o} className="text-[13px]">
-                  {o}
-                </SelectItem>
-              ))}
-          </SelectContent>
-        </Select>
-
-        {filtered && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setPlace('all');
-              setOwner('all');
-              setQuery('');
-            }}
-            className="rounded-full h-9 border-line text-[12px] gap-1.5"
-          >
-            <Icon name="X" size={14} />
-            Сбросить
-          </Button>
-        )}
+        <ScopeFilters
+          tasks={tasks.filter((t) => t.personal === personal)}
+          place={place}
+          owner={owner}
+          onPlace={setPlace}
+          onOwner={setOwner}
+        />
 
         <Button onClick={() => { setPreset('none'); setCreating(true); }} className="rounded-full h-9 gap-1.5 text-[13px]">
           <Icon name="Plus" size={15} />
