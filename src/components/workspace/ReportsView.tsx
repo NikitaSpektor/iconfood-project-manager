@@ -13,6 +13,7 @@ import {
 } from '@/data/workspace';
 import { toast } from '@/hooks/use-toast';
 import ScopeFilters, { useDefaultPlace, useScopeFilter } from './ScopeFilters';
+import { exportReport } from '@/lib/export-report';
 
 const periods = ['Неделя', 'Месяц', 'Квартал'];
 const slices = ['По ресторанам', 'По колонкам', 'По важности'];
@@ -116,15 +117,28 @@ export default function ReportsView() {
         <Button
           variant="outline"
           className="rounded-full h-9 gap-1.5 text-[13px] border-line"
-          onClick={() =>
+          onClick={() => {
+            if (rows.length === 0) {
+              toast({ title: 'Нечего выгружать', description: 'В текущем срезе нет задач.' });
+              return;
+            }
+            exportReport({
+              tasks: rows,
+              sliceRows,
+              sliceName: slice,
+              period,
+              place,
+              owner,
+              metrics,
+            });
             toast({
-              title: 'Отчёт выгружен',
-              description: `Срез «${slice}» за период «${period}»${place !== 'all' ? `, ${place}` : ''} — ${rows.length} задач. Отправлен на почту руководителям.`,
-            })
-          }
+              title: 'Файл Excel скачан',
+              description: `Срез «${slice}» за период «${period}» — ${rows.length} задач.`,
+            });
+          }}
         >
           <Icon name="Download" size={15} />
-          Выгрузить
+          Excel
         </Button>
       </section>
 
