@@ -52,7 +52,7 @@ export default function LoginScreen({ onEnter }: { onEnter: (user: ApiUser) => v
           </h1>
           <div className="h-px bg-line my-6" />
           <p className="text-[15px] leading-relaxed text-muted-foreground max-w-md">
-            Двенадцать ресторанов, весь холдинг и одна доска, на которой видно, что горит сегодня,
+            Двенадцать ресторанов, фабрика и одна доска, на которой видно, что горит сегодня,
             а что подождёт до конца месяца.
           </p>
 
