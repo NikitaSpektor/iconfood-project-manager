@@ -4,6 +4,7 @@ import os
 import re
 import smtplib
 import uuid
+from datetime import date
 from email.header import Header
 from email.mime.text import MIMEText
 
@@ -168,6 +169,57 @@ def announce_comment(cur, task_id, actor, text):
         'INSERT INTO messages (channel_id, author, author_login, text) VALUES ('
         + str(channel[0]) + ', ' + q(actor) + ", 'system', " + q('\n'.join(lines)) + ')'
     )
+
+
+MONTHS = {
+    'января': 1, 'февраля': 2, 'марта': 3, 'апреля': 4, 'мая': 5, 'июня': 6,
+    'июля': 7, 'августа': 8, 'сентября': 9, 'октября': 10, 'ноября': 11, 'декабря': 12,
+}
+
+
+def deadline_date(deadline: str, today):
+    parts = str(deadline).strip().split()
+    if len(parts) < 2 or not parts[0].isdigit():
+        return None
+    month = MONTHS.get(parts[1].lower())
+    if not month:
+        return None
+    try:
+        return date(today.year, month, int(parts[0]))
+    except ValueError:
+        return None
+
+
+def announce_overdue(cur):
+    """Сообщает в каналы подразделений о задачах, просроченных по дедлайну."""
+    today = date.today()
+    cur.execute(
+        'SELECT t.id, t.title, t.restaurant, t.assignee, t.deadline, c.id FROM tasks t '
+        'JOIN channels c ON c.unit = t.restaurant AND c.archived = FALSE '
+        "WHERE t.column_id <> 'done' AND t.overdue_announced = FALSE AND t.owner_login = '' "
+        "AND t.deadline <> ''"
+    )
+    for task_id, title, restaurant, assignee, deadline, channel_id in cur.fetchall():
+        due = deadline_date(deadline, today)
+        if not due or due >= today:
+            continue
+        days = (today - due).days
+        tail = 'дней'
+        if days % 10 == 1 and days % 100 != 11:
+            tail = 'день'
+        elif days % 10 in (2, 3, 4) and days % 100 not in (12, 13, 14):
+            tail = 'дня'
+        lines = [
+            'Просрочена задача: ' + title,
+            'Срок был ' + deadline + ' — просрочка ' + str(days) + ' ' + tail,
+        ]
+        if assignee:
+            lines.append('Ответственный: ' + assignee)
+        cur.execute(
+            'INSERT INTO messages (channel_id, author, author_login, text) VALUES ('
+            + str(channel_id) + ", 'Контроль сроков', 'system', " + q('\n'.join(lines)) + ')'
+        )
+        cur.execute('UPDATE tasks SET overdue_announced = TRUE WHERE id = ' + str(task_id))
 
 
 def notify_assignee(cur, task_id, actor, kind, text):
@@ -359,6 +411,8 @@ def handler(event: dict, context) -> dict:
         return {'statusCode': 401, 'headers': CORS, 'body': json.dumps({'error': 'Требуется вход'})}
 
     if method == 'GET':
+        announce_overdue(cur)
+        conn.commit()
         tasks = load_tasks(cur, user['login'])
         notifications = load_notifications(cur, user['login'])
         channels = load_channels(cur, user)

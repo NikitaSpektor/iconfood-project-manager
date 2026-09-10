@@ -227,7 +227,9 @@ export default function ChatView() {
                     'max-w-[85%] rounded-2xl border px-3.5 py-2.5',
                     m.text.startsWith('Задача закрыта')
                       ? 'border-flag-done/40 bg-flag-done/5'
-                      : 'border-line bg-surface',
+                      : m.text.startsWith('Просрочена задача')
+                        ? 'border-flag-hot/40 bg-flag-hot/5'
+                        : 'border-line bg-surface',
                   )}
                 >
                   <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground mb-1">
@@ -235,12 +237,17 @@ export default function ChatView() {
                       name={
                         m.text.startsWith('Задача закрыта')
                           ? 'CircleCheck'
-                          : m.text.startsWith('Комментарий к задаче')
-                            ? 'MessageSquare'
-                            : 'ClipboardCheck'
+                          : m.text.startsWith('Просрочена задача')
+                            ? 'TriangleAlert'
+                            : m.text.startsWith('Комментарий к задаче')
+                              ? 'MessageSquare'
+                              : 'ClipboardCheck'
                       }
                       size={12}
-                      className={m.text.startsWith('Задача закрыта') ? 'text-flag-done' : ''}
+                      className={cn(
+                        m.text.startsWith('Задача закрыта') && 'text-flag-done',
+                        m.text.startsWith('Просрочена задача') && 'text-flag-hot',
+                      )}
                     />
                     {m.author} · {m.time}
                   </div>
