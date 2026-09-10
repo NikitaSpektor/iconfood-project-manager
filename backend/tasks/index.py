@@ -142,7 +142,7 @@ def load_notifications(cur, login):
 
 def load_channels(cur, user):
     cur.execute(
-        'SELECT c.id, c.name, c.hint, c.is_open, c.created_by, c.kind FROM channels c WHERE c.archived = FALSE AND '
+        'SELECT c.id, c.name, c.hint, c.is_open, c.created_by, c.kind, c.unit FROM channels c WHERE c.archived = FALSE AND '
         '(c.is_open = TRUE OR EXISTS (SELECT 1 FROM channel_members m WHERE m.channel_id = c.id '
         'AND m.active = TRUE AND m.user_login = ' + q(user['login']) + ')) ORDER BY c.position, c.id'
     )
@@ -184,12 +184,14 @@ def load_channels(cur, user):
     reads = {r[0]: r[1] for r in cur.fetchall()}
 
     channels = []
-    for cid, name, hint, is_open, created_by, kind in rows:
+    for cid, name, hint, is_open, created_by, kind, unit in rows:
         msgs = grouped.get(cid, [])
         last_read = reads.get(cid, 0)
         people = members.get(cid, [])
         title = name
         subtitle = hint or ('Все сотрудники' if is_open else f'{len(people)} участников')
+        if unit:
+            subtitle = f'Подразделение · {len(people)} участников'
         if kind == 'direct':
             other = next((p for p in people if p['login'] != user['login']), None)
             if other:
@@ -204,6 +206,7 @@ def load_channels(cur, user):
             'kind': kind,
             'open': is_open,
             'createdBy': created_by,
+            'unit': unit,
             'members': people,
             'unread': sum(1 for m in msgs if int(m['id']) > last_read and not m['own']),
             'messages': msgs,

@@ -164,6 +164,7 @@ export default function ChatView() {
                     {c.name.split(' ').map((w) => w[0]).join('')}
                   </span>
                 )}
+                {c.unit && <Icon name="Building2" size={13} className="text-muted-foreground flex-none" />}
                 <span className="text-[13px] font-medium truncate">{c.name}</span>
                 {c.unread > 0 && (
                   <span className="ml-auto h-[18px] min-w-[18px] rounded-full bg-primary text-primary-foreground text-[10px] font-semibold flex items-center justify-center px-1">
@@ -188,7 +189,7 @@ export default function ChatView() {
             {active.kind === 'direct' ? (
               active.name.split(' ').map((w) => w[0]).join('')
             ) : (
-              <Icon name="Hash" size={16} className="text-foreground/60" />
+              <Icon name={active.unit ? 'Building2' : 'Hash'} size={16} className="text-foreground/60" />
             )}
           </div>
           <div>

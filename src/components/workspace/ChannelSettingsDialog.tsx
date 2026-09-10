@@ -87,12 +87,22 @@ export default function ChannelSettingsDialog({
         </DialogHeader>
 
         <div className="space-y-4">
+          {channel.unit && (
+            <div className="rounded-tile border border-line bg-surface px-3.5 py-3 text-[12px] text-muted-foreground flex gap-2.5">
+              <Icon name="Building2" size={15} className="flex-none mt-0.5" />
+              <span>
+                Канал подразделения «{channel.unit}». Состав обновляется автоматически: сотрудник
+                попадает сюда, когда его переводят в это подразделение.
+              </span>
+            </div>
+          )}
           <div className="space-y-1.5">
             <Label htmlFor="cs-name">Название</Label>
             <Input
               id="cs-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
+              disabled={!!channel.unit}
               className="rounded-xl"
             />
           </div>
@@ -108,7 +118,7 @@ export default function ChannelSettingsDialog({
           <Button
             type="button"
             variant="outline"
-            disabled={busy || name.trim().length < 3}
+            disabled={busy || name.trim().length < 3 || !!channel.unit}
             onClick={saveInfo}
             className="rounded-full w-full h-9 text-xs border-line"
           >

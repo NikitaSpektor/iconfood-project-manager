@@ -23,6 +23,31 @@ def hash_password(login: str, password: str) -> str:
     return hashlib.sha256(f'{login}:{password}'.encode()).hexdigest()
 
 
+def sync_unit_channel(cur, login: str, unit: str) -> None:
+    """Переводит сотрудника в канал своего подразделения и убирает из чужих."""
+    if not unit:
+        return
+    cur.execute('SELECT id FROM channels WHERE unit = ' + q(unit) + ' AND archived = FALSE')
+    row = cur.fetchone()
+    if row:
+        channel_id = row[0]
+    else:
+        cur.execute(
+            'INSERT INTO channels (name, hint, position, is_open, created_by, kind, unit) VALUES ('
+            + q(unit) + ", 'Команда подразделения', 10, FALSE, '', 'channel', " + q(unit) + ') RETURNING id'
+        )
+        channel_id = cur.fetchone()[0]
+    cur.execute(
+        'UPDATE channel_members SET active = FALSE WHERE user_login = ' + q(login)
+        + ' AND channel_id IN (SELECT id FROM channels WHERE unit <> \'\' AND id <> ' + str(channel_id) + ')'
+    )
+    cur.execute(
+        'INSERT INTO channel_members (channel_id, user_login, active) VALUES ('
+        + str(channel_id) + ', ' + q(login) + ', TRUE) '
+        'ON CONFLICT (channel_id, user_login) DO UPDATE SET active = TRUE'
+    )
+
+
 def handler(event: dict, context) -> dict:
     """Вход сотрудников ICONFOOD по логину и паролю, выдача и проверка токена сессии."""
     method = event.get('httpMethod', 'GET')
@@ -121,6 +146,8 @@ def handler(event: dict, context) -> dict:
             + q(role) + ', ' + q(restaurant) + ') ON CONFLICT (login) DO NOTHING RETURNING id'
         )
         created = cur.fetchone()
+        if created:
+            sync_unit_channel(cur, login, restaurant)
         conn.commit()
         cur.close()
         conn.close()
@@ -138,6 +165,8 @@ def handler(event: dict, context) -> dict:
         if 'position' in body:
             sets += ', position = ' + q(str(body.get('position', ''))[:120])
         cur.execute('UPDATE users SET ' + sets + ' WHERE login = ' + q(login))
+        if restaurant:
+            sync_unit_channel(cur, login, restaurant)
         conn.commit()
         cur.close()
         conn.close()
