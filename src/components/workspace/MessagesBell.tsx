@@ -18,7 +18,7 @@ export default function MessagesBell({ onOpenChat }: { onOpenChat: () => void })
       if (!last) return;
       const prev = seen.current[c.id];
       seen.current[c.id] = last.id;
-      if (ready.current && prev && prev !== last.id && !last.own && c.unread > 0) {
+      if (ready.current && prev && prev !== last.id && !last.own && !last.system && c.unread > 0) {
         fresh.push({
           author: c.name,
           text: last.text || (last.file ? `Файл: ${last.file.name}` : 'Новое сообщение'),

@@ -219,7 +219,18 @@ export default function ChatView() {
         </div>
 
         <div className="flex-1 min-h-0 overflow-y-auto no-scrollbar px-5 py-4 space-y-3">
-          {active.messages.map((m) => (
+          {active.messages.map((m) =>
+            m.system ? (
+              <div key={m.id} className="flex justify-center">
+                <div className="max-w-[85%] rounded-2xl border border-line bg-surface px-3.5 py-2.5">
+                  <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground mb-1">
+                    <Icon name="ClipboardCheck" size={12} />
+                    {m.author} · {m.time}
+                  </div>
+                  <div className="text-[12px] leading-snug whitespace-pre-line">{m.text}</div>
+                </div>
+              </div>
+            ) : (
             <div
               key={m.id}
               className={cn('flex gap-2.5', m.own ? 'justify-end' : 'justify-start')}
@@ -290,7 +301,8 @@ export default function ChatView() {
                 </div>
               </div>
             </div>
-          ))}
+            ),
+          )}
           <div ref={endRef} />
         </div>
 

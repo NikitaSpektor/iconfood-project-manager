@@ -102,6 +102,29 @@ def notify_new_task(cur, task_id, actor, title, restaurant, deadline, template, 
     send_email(target[1], 'Новая задача: ' + title, html)
 
 
+def announce_task(cur, actor, title, restaurant, deadline, assignee, template, steps):
+    """Публикует новую задачу сообщением в канал подразделения."""
+    if not restaurant:
+        return
+    cur.execute('SELECT id FROM channels WHERE unit = ' + q(restaurant) + ' AND archived = FALSE')
+    row = cur.fetchone()
+    if not row:
+        return
+    lines = ['Новая задача: ' + title]
+    if deadline:
+        lines.append('Дедлайн: ' + deadline)
+    if assignee:
+        lines.append('Ответственный: ' + assignee)
+    if template:
+        lines.append('Шаблон: ' + template)
+    if steps:
+        lines.append('Шагов: ' + str(steps))
+    cur.execute(
+        'INSERT INTO messages (channel_id, author, author_login, text) VALUES ('
+        + str(row[0]) + ', ' + q(actor) + ", 'system', " + q('\n'.join(lines)) + ')'
+    )
+
+
 def notify_assignee(cur, task_id, actor, kind, text):
     cur.execute('SELECT title, assignee FROM tasks WHERE id = ' + str(task_id))
     row = cur.fetchone()
@@ -169,7 +192,8 @@ def load_channels(cur, user):
             'text': text,
             'time': created.strftime('%H:%M'),
             'createdAt': created.isoformat(),
-            'own': author_login == user['login'],
+            'own': author_login == user['login'] and author_login != 'system',
+            'system': author_login == 'system',
         }
         if f_url:
             message['file'] = {
@@ -479,6 +503,12 @@ def handler(event: dict, context) -> dict:
             cur, new_id, user['name'], str(body.get('title', '')), str(body.get('restaurant', '')),
             str(body.get('deadline', '')), body.get('template'), str(body.get('assignee', '')), subtasks,
         )
+        if not body.get('personal'):
+            announce_task(
+                cur, user['name'], str(body.get('title', '')), str(body.get('restaurant', '')),
+                str(body.get('deadline', '')), str(body.get('assignee', '')),
+                body.get('template'), len(subtasks),
+            )
         conn.commit()
 
     tasks = load_tasks(cur, user['login'])

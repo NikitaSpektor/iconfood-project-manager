@@ -64,6 +64,7 @@ export interface ChatMessage {
   text: string;
   time: string;
   own?: boolean;
+  system?: boolean;
   file?: {
     url: string;
     name: string;
