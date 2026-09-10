@@ -160,7 +160,7 @@ export default function MembersView() {
             <SelectTrigger className="flex-1 min-w-[130px] sm:flex-none sm:w-[170px] h-9 rounded-full text-[12px] border-line bg-card">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="rounded-2xl max-h-[300px]">
+            <SelectContent className="rounded-2xl">
               <SelectItem value="all" className="text-[13px]">Все должности</SelectItem>
               {positions.map((p) => (
                 <SelectItem key={p} value={p} className="text-[13px]">

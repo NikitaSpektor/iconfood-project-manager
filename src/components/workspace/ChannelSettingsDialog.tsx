@@ -76,7 +76,7 @@ export default function ChannelSettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md rounded-bento border-line max-h-[88vh] overflow-y-auto no-scrollbar">
+      <DialogContent className="max-w-md rounded-bento border-line max-h-[88vh] overflow-y-auto thin-scrollbar">
         <DialogHeader className="text-left">
           <DialogTitle className="tracking-tight">Настройки канала</DialogTitle>
           <DialogDescription>
@@ -128,7 +128,7 @@ export default function ChannelSettingsDialog({
           {current.length > 0 && (
             <div className="space-y-2">
               <Label>В канале · {current.length}</Label>
-              <div className="space-y-1 rounded-tile border border-line p-1.5 max-h-40 overflow-y-auto no-scrollbar">
+              <div className="space-y-1 rounded-tile border border-line p-1.5 max-h-40 overflow-y-auto thin-scrollbar">
                 {current.map((m) => (
                   <div
                     key={m.login}
@@ -171,7 +171,7 @@ export default function ChannelSettingsDialog({
               </div>
             </div>
 
-            <div className="space-y-1 rounded-tile border border-line p-1.5 max-h-44 overflow-y-auto no-scrollbar">
+            <div className="space-y-1 rounded-tile border border-line p-1.5 max-h-44 overflow-y-auto thin-scrollbar">
               {candidates.map((p) => (
                 <div
                   key={p.login}

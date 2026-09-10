@@ -96,7 +96,7 @@ export default function TaskDialog({
                 <i className="h-2.5 w-2.5 rounded-[3px] bg-bar" />
                 Подзадачи
               </div>
-              <ul className="space-y-2.5 max-h-52 overflow-y-auto no-scrollbar">
+              <ul className="space-y-2.5 max-h-52 overflow-y-auto thin-scrollbar">
                 {live.subtasks.map((s) => (
                   <li key={s.id} className="flex items-start gap-3">
                     <Checkbox

@@ -61,7 +61,7 @@ export default function ScopeFilters({
         <SelectTrigger className="flex-1 min-w-[140px] sm:flex-none sm:w-[180px] h-9 rounded-full text-[12px] border-line bg-card">
           <SelectValue />
         </SelectTrigger>
-        <SelectContent className="rounded-2xl max-h-[320px]">
+        <SelectContent className="rounded-2xl">
           <SelectItem value="all" className="text-[13px]">Все подразделения</SelectItem>
           {RESTAURANTS.map((r) => (
             <SelectItem key={r} value={r} className="text-[13px]">
@@ -75,7 +75,7 @@ export default function ScopeFilters({
         <SelectTrigger className="flex-1 min-w-[140px] sm:flex-none sm:w-[170px] h-9 rounded-full text-[12px] border-line bg-card">
           <SelectValue />
         </SelectTrigger>
-        <SelectContent className="rounded-2xl max-h-[320px]">
+        <SelectContent className="rounded-2xl">
           <SelectItem value="all" className="text-[13px]">Все ответственные</SelectItem>
           {user.name && (
             <SelectItem value={user.name} className="text-[13px]">

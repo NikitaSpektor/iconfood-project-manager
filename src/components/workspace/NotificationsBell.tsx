@@ -66,7 +66,7 @@ export default function NotificationsBell({ onOpenTask }: { onOpenTask: (taskId:
             Пока тихо — новых событий нет
           </div>
         ) : (
-          <div className="max-h-80 overflow-y-auto no-scrollbar py-1">
+          <div className="max-h-80 overflow-y-auto thin-scrollbar py-1">
             {notifications.map((n) => (
               <button
                 key={n.id}

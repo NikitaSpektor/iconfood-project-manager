@@ -117,7 +117,7 @@ export default function NewTaskDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md rounded-bento border-line">
+      <DialogContent className="max-w-md rounded-bento border-line max-h-[88vh] overflow-y-auto thin-scrollbar">
         <DialogHeader className="text-left">
           <DialogTitle className="tracking-tight">Новая задача</DialogTitle>
           <DialogDescription>
@@ -145,7 +145,7 @@ export default function NewTaskDialog({
                 <SelectTrigger className="rounded-xl">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="rounded-2xl max-h-56">
+                <SelectContent className="rounded-2xl">
                   {people.map((m) => (
                     <SelectItem key={m.id} value={m.name}>
                       {m.name}

@@ -123,7 +123,7 @@ export default function NewChannelDialog({
               </div>
             </div>
 
-            <div className="max-h-48 overflow-y-auto no-scrollbar space-y-1 rounded-tile border border-line p-1.5">
+            <div className="max-h-48 overflow-y-auto thin-scrollbar space-y-1 rounded-tile border border-line p-1.5">
               {list.map((p) => (
                 <button
                   key={p.id}

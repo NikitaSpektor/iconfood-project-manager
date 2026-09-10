@@ -50,7 +50,7 @@ export default function TaskComments({
       </div>
 
       {comments.length > 0 ? (
-        <div ref={listRef} className="space-y-3 max-h-48 overflow-y-auto no-scrollbar pr-0.5">
+        <div ref={listRef} className="space-y-3 max-h-48 overflow-y-auto thin-scrollbar pr-0.5">
           {comments.map((c) => {
             const own = c.author === user.name;
             return (
