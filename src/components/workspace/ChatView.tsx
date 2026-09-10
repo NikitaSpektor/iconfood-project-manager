@@ -232,7 +232,13 @@ export default function ChatView() {
                 >
                   <div className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground mb-1">
                     <Icon
-                      name={m.text.startsWith('Задача закрыта') ? 'CircleCheck' : 'ClipboardCheck'}
+                      name={
+                        m.text.startsWith('Задача закрыта')
+                          ? 'CircleCheck'
+                          : m.text.startsWith('Комментарий к задаче')
+                            ? 'MessageSquare'
+                            : 'ClipboardCheck'
+                      }
                       size={12}
                       className={m.text.startsWith('Задача закрыта') ? 'text-flag-done' : ''}
                     />

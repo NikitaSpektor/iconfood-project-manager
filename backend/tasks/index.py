@@ -149,6 +149,27 @@ def announce_done(cur, task_id, actor):
     )
 
 
+def announce_comment(cur, task_id, actor, text):
+    """Публикует комментарий к задаче в канал подразделения."""
+    cur.execute('SELECT title, restaurant, owner_login FROM tasks WHERE id = ' + str(task_id))
+    row = cur.fetchone()
+    if not row:
+        return
+    title, restaurant, owner_login = row
+    if owner_login or not restaurant:
+        return
+    cur.execute('SELECT id FROM channels WHERE unit = ' + q(restaurant) + ' AND archived = FALSE')
+    channel = cur.fetchone()
+    if not channel:
+        return
+    body_text = text if len(text) <= 400 else text[:400] + '…'
+    lines = ['Комментарий к задаче: ' + title, actor + ': ' + body_text]
+    cur.execute(
+        'INSERT INTO messages (channel_id, author, author_login, text) VALUES ('
+        + str(channel[0]) + ', ' + q(actor) + ", 'system', " + q('\n'.join(lines)) + ')'
+    )
+
+
 def notify_assignee(cur, task_id, actor, kind, text):
     cur.execute('SELECT title, assignee FROM tasks WHERE id = ' + str(task_id))
     row = cur.fetchone()
@@ -510,6 +531,7 @@ def handler(event: dict, context) -> dict:
                 + str(int(body.get('taskId'))) + ', ' + q(user['name']) + ', ' + q(user['login']) + ', ' + q(text) + ')'
             )
             notify_assignee(cur, int(body.get('taskId')), user['name'], 'comment', text)
+            announce_comment(cur, int(body.get('taskId')), user['name'], text)
             conn.commit()
     elif action == 'create':
         owner = user['login'] if body.get('personal') else ''
