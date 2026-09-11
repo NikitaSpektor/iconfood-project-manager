@@ -90,6 +90,7 @@ export interface Channel {
 
 export const RESTAURANTS = [
   'Управляющая компания',
+  'Колл-центр',
   'Фабрика',
   'Авиапарк',
   'Метрополис',
