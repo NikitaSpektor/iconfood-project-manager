@@ -13,6 +13,7 @@ import {
 import { toast } from '@/hooks/use-toast';
 import { RESTAURANTS, roleLabels, type Role } from '@/data/workspace';
 import { useWorkspace } from '@/hooks/use-workspace';
+import TelegramCard from '@/components/workspace/TelegramCard';
 
 const notifications = [
   { id: 'n1', label: 'Новая задача на мне', hint: 'Письмо ответственному сразу после создания', on: true },
@@ -123,6 +124,8 @@ export default function SettingsView() {
           ))}
         </ul>
       </section>
+
+      <TelegramCard />
 
       <section className="bento p-5 sm:p-6 lg:col-span-2 animate-fade-in [animation-delay:.16s]">
         <div className="eyebrow mb-3">

@@ -3,6 +3,7 @@ import urls from '../../backend/func2url.json';
 export const AUTH_URL = urls.auth;
 export const TASKS_URL = urls.tasks;
 export const SUBTASKS_AI_URL = (urls as Record<string, string>).subtasks || '';
+export const TELEGRAM_URL = (urls as Record<string, string>).telegram || '';
 
 const TOKEN_KEY = 'iconfood_token';
 
@@ -114,4 +115,25 @@ export async function suggestSubtasks(payload: {
     body: JSON.stringify(payload),
   });
   return (data.steps || []) as string[];
+}
+
+export interface TelegramStatus {
+  linked: boolean;
+  username: string;
+  channelId: string;
+  bot: string;
+  code?: string;
+}
+
+export async function telegramStatus() {
+  if (!TELEGRAM_URL) throw new Error('Telegram пока не подключён');
+  return (await request(TELEGRAM_URL)) as TelegramStatus;
+}
+
+export async function telegramAction(action: 'code' | 'unlink' | 'setup', extra: Record<string, unknown> = {}) {
+  if (!TELEGRAM_URL) throw new Error('Telegram пока не подключён');
+  return (await request(TELEGRAM_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action, ...extra }),
+  })) as TelegramStatus;
 }

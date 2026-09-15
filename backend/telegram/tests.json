@@ -1,0 +1,17 @@
+{
+  "tests": [
+    {
+      "name": "Без токена доступ закрыт",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "code"},
+      "expectedStatus": 401
+    },
+    {
+      "name": "OPTIONS отдаёт CORS",
+      "method": "OPTIONS",
+      "path": "/",
+      "expectedStatus": 200
+    }
+  ]
+}

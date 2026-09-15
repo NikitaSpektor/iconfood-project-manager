@@ -3,6 +3,8 @@ import json
 import os
 import re
 import smtplib
+import urllib.parse
+import urllib.request
 import uuid
 from datetime import date
 from email.header import Header
@@ -37,6 +39,43 @@ def current_user(cur, event):
     )
     row = cur.fetchone()
     return {'login': row[0], 'name': row[1]} if row else None
+
+
+def tg_send(chat_id: str, text: str) -> None:
+    token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
+    if not token or not chat_id:
+        return
+    url = 'https://api.telegram.org/bot' + token + '/sendMessage'
+    data = urllib.parse.urlencode({'chat_id': chat_id, 'text': text[:3800]}).encode()
+    try:
+        urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=4)
+    except Exception:
+        return
+
+
+def tg_fanout(cur, channel_id, author_login, author_name, text) -> None:
+    """Дублирует сообщение канала в Telegram участникам, привязавшим аккаунт."""
+    if not os.environ.get('TELEGRAM_BOT_TOKEN'):
+        return
+    cur.execute('SELECT name, is_open FROM channels WHERE id = ' + str(int(channel_id)))
+    row = cur.fetchone()
+    if not row:
+        return
+    channel_name, is_open = row
+    if is_open:
+        cur.execute(
+            "SELECT tg_chat_id FROM users WHERE active = TRUE AND tg_chat_id <> '' "
+            'AND login <> ' + q(author_login)
+        )
+    else:
+        cur.execute(
+            'SELECT u.tg_chat_id FROM channel_members m JOIN users u ON u.login = m.user_login '
+            'WHERE m.channel_id = ' + str(int(channel_id)) + ' AND m.active = TRUE AND u.active = TRUE '
+            "AND u.tg_chat_id <> '' AND u.login <> " + q(author_login)
+        )
+    body = channel_name + '\n' + author_name + ': ' + text
+    for (chat_id,) in cur.fetchall():
+        tg_send(chat_id, body)
 
 
 def send_email(to_email: str, subject: str, html: str) -> None:
@@ -532,6 +571,8 @@ def handler(event: dict, context) -> dict:
                 + q(f_name) + ', ' + q(f_mime) + ', ' + str(f_size) + ')'
             )
             conn.commit()
+            body_text = text[:2000] if text else ('Файл: ' + f_name)
+            tg_fanout(cur, int(body.get('channelId')), user['login'], user['name'], body_text)
     elif action == 'read_channel':
         channel_id = int(body.get('channelId'))
         cur.execute('SELECT COALESCE(MAX(id), 0) FROM messages WHERE channel_id = ' + str(channel_id))
