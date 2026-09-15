@@ -48,9 +48,19 @@ def tg_send(chat_id: str, text: str) -> None:
     url = 'https://api.telegram.org/bot' + token + '/sendMessage'
     data = urllib.parse.urlencode({'chat_id': chat_id, 'text': text[:3800]}).encode()
     try:
-        urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=4)
+        urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=2)
     except Exception:
         return
+
+
+def tg_personal(cur, login, text) -> None:
+    """Шлёт личное уведомление сотруднику в Telegram, если он привязал аккаунт."""
+    if not os.environ.get('TELEGRAM_BOT_TOKEN') or not login:
+        return
+    cur.execute("SELECT tg_chat_id FROM users WHERE login = " + q(login) + " AND tg_chat_id <> ''")
+    row = cur.fetchone()
+    if row:
+        tg_send(row[0], text)
 
 
 def tg_fanout(cur, channel_id, author_login, author_name, text) -> None:
@@ -140,6 +150,15 @@ def notify_new_task(cur, task_id, actor, title, restaurant, deadline, template, 
         '</div>'
     )
     send_email(target[1], 'Новая задача: ' + title, html)
+    lines = ['Новая задача на вас', title]
+    if restaurant:
+        lines.append('Подразделение: ' + restaurant)
+    if deadline:
+        lines.append('Дедлайн: ' + deadline)
+    lines.append('Поставил: ' + actor)
+    if subtasks:
+        lines.append('Шагов: ' + str(len(subtasks)))
+    tg_personal(cur, target[0], '\n'.join(lines))
 
 
 def announce_task(cur, actor, title, restaurant, deadline, assignee, template, steps):
@@ -163,6 +182,7 @@ def announce_task(cur, actor, title, restaurant, deadline, assignee, template, s
         'INSERT INTO messages (channel_id, author, author_login, text) VALUES ('
         + str(row[0]) + ', ' + q(actor) + ", 'system', " + q('\n'.join(lines)) + ')'
     )
+    tg_fanout(cur, row[0], '', actor, '\n'.join(lines))
 
 
 def announce_done(cur, task_id, actor):
@@ -187,6 +207,7 @@ def announce_done(cur, task_id, actor):
         'INSERT INTO messages (channel_id, author, author_login, text) VALUES ('
         + str(channel[0]) + ', ' + q(actor) + ", 'system', " + q('\n'.join(lines)) + ')'
     )
+    tg_fanout(cur, channel[0], '', actor, '\n'.join(lines))
 
 
 def announce_comment(cur, task_id, actor, text):
@@ -266,6 +287,13 @@ def announce_overdue(cur):
             + str(channel_id) + ", 'Контроль сроков', 'system', " + q('\n'.join(lines)) + ')'
         )
         cur.execute('UPDATE tasks SET overdue_announced = TRUE WHERE id = ' + str(task_id))
+        tg_fanout(cur, channel_id, '', 'Контроль сроков', '\n'.join(lines))
+        if assignee:
+            cur.execute('SELECT login FROM users WHERE name = ' + q(assignee))
+            who = cur.fetchone()
+            if who:
+                tg_personal(cur, who[0], 'Просрочена ваша задача\n' + title
+                            + '\nСрок был ' + deadline + ' — просрочка ' + str(days) + ' ' + tail)
 
 
 def notify_assignee(cur, task_id, actor, kind, text):
@@ -284,6 +312,8 @@ def notify_assignee(cur, task_id, actor, kind, text):
         'INSERT INTO notifications (recipient_login, task_id, task_title, kind, actor, text) VALUES ('
         + q(target[0]) + ', ' + str(task_id) + ', ' + q(title) + ', ' + q(kind) + ', ' + q(actor) + ', ' + q(text[:300]) + ')'
     )
+    head = 'Новый файл в задаче' if kind == 'file' else 'Комментарий к задаче'
+    tg_personal(cur, target[0], head + '\n' + title + '\n' + actor + ': ' + text[:500])
 
 
 def load_notifications(cur, login):
