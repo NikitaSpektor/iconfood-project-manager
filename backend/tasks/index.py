@@ -45,7 +45,8 @@ def tg_send(chat_id: str, text: str) -> None:
     token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
     if not token or not chat_id:
         return
-    url = 'https://api.telegram.org/bot' + token + '/sendMessage'
+    base = os.environ.get('TELEGRAM_API_BASE', '').strip().rstrip('/') or 'https://api.telegram.org'
+    url = base + '/bot' + token + '/sendMessage'
     data = urllib.parse.urlencode({'chat_id': chat_id, 'text': text[:3800]}).encode()
     try:
         urllib.request.urlopen(urllib.request.Request(url, data=data), timeout=1.5)

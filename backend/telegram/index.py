@@ -21,11 +21,16 @@ def q(value) -> str:
     return "'" + str(value).replace("'", "''") + "'"
 
 
+def api_base() -> str:
+    base = os.environ.get('TELEGRAM_API_BASE', '').strip().rstrip('/')
+    return base or 'https://api.telegram.org'
+
+
 def tg_call(method: str, payload: dict, timeout: int = 3) -> dict:
     token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
     if not token:
         return {}
-    url = 'https://api.telegram.org/bot' + token + '/' + method
+    url = api_base() + '/bot' + token + '/' + method
     data = urllib.parse.urlencode(payload).encode()
     req = urllib.request.Request(url, data=data)
     try:
@@ -182,6 +187,29 @@ def handler(event: dict, context) -> dict:
     body = json.loads(event.get('body') or '{}')
     conn = psycopg2.connect(os.environ['DATABASE_URL'])
     cur = conn.cursor()
+
+    if body.get('action') == 'ping':
+        probe = []
+        for host in (api_base(),):
+            try:
+                with urllib.request.urlopen(host, timeout=3) as r:
+                    probe.append(host + ' ok ' + str(r.status))
+            except Exception as exc:
+                probe.append(host + ' fail ' + str(exc)[:60])
+        probe = ' | '.join(probe)
+        info = {'probe': probe}
+        cur.close()
+        conn.close()
+        return {
+            'statusCode': 200,
+            'headers': CORS,
+            'body': json.dumps({
+                'ok': bool(info.get('ok')),
+                'bot': (info.get('result') or {}).get('username', ''),
+                'error': info.get('error', ''),
+                'probe': info.get('probe', ''),
+            }),
+        }
 
     if 'update_id' in body:
         handle_update(cur, conn, body)
