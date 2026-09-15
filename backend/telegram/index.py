@@ -21,7 +21,7 @@ def q(value) -> str:
     return "'" + str(value).replace("'", "''") + "'"
 
 
-def tg_call(method: str, payload: dict) -> dict:
+def tg_call(method: str, payload: dict, timeout: int = 3) -> dict:
     token = os.environ.get('TELEGRAM_BOT_TOKEN', '')
     if not token:
         return {}
@@ -29,10 +29,10 @@ def tg_call(method: str, payload: dict) -> dict:
     data = urllib.parse.urlencode(payload).encode()
     req = urllib.request.Request(url, data=data)
     try:
-        with urllib.request.urlopen(req, timeout=6) as resp:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
             return json.loads(resp.read().decode())
-    except Exception:
-        return {}
+    except Exception as exc:
+        return {'ok': False, 'error': str(exc)[:200]}
 
 
 def tg_send(chat_id, text: str) -> None:
@@ -202,9 +202,7 @@ def handler(event: dict, context) -> dict:
         code = str(random.randint(100000, 999999))
         cur.execute("UPDATE users SET tg_code = " + q(code) + ' WHERE login = ' + q(user['login']))
         conn.commit()
-        info = tg_call('getMe', {})
-        bot = (info.get('result') or {}).get('username', '')
-        result = {'code': code, 'bot': bot}
+        result = {'code': code}
     elif action == 'unlink':
         cur.execute(
             "UPDATE users SET tg_chat_id = '', tg_code = '', tg_username = '', tg_channel_id = 0 "
@@ -214,18 +212,28 @@ def handler(event: dict, context) -> dict:
     elif action == 'setup':
         url = str(body.get('url', ''))
         if url:
-            tg_call('setWebhook', {'url': url, 'allowed_updates': '["message"]'})
+            hook = tg_call('setWebhook', {'url': url, 'allowed_updates': '["message"]'})
+            result['webhook'] = bool(hook.get('ok'))
+        info = tg_call('getMe', {})
+        name = (info.get('result') or {}).get('username', '')
+        if name:
+            cur.execute(
+                "INSERT INTO app_settings (key, value) VALUES ('tg_bot', " + q(name) + ') '
+                'ON CONFLICT (key) DO UPDATE SET value = ' + q(name) + ', updated_at = NOW()'
+            )
+            conn.commit()
 
     cur.execute(
         'SELECT tg_chat_id, tg_username, tg_channel_id FROM users WHERE login = ' + q(user['login'])
     )
     row = cur.fetchone()
-    info = tg_call('getMe', {})
+    cur.execute("SELECT value FROM app_settings WHERE key = 'tg_bot'")
+    saved = cur.fetchone()
     result.update({
         'linked': bool(row and row[0]),
         'username': (row[1] if row else '') or '',
         'channelId': str(row[2]) if row and row[2] else '',
-        'bot': (info.get('result') or {}).get('username', ''),
+        'bot': saved[0] if saved else '',
     })
     cur.close()
     conn.close()

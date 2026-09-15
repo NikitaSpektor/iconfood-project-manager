@@ -18,10 +18,12 @@ export default function TelegramCard() {
   const getCode = async () => {
     setBusy(true);
     try {
-      await telegramAction('setup', { url: TELEGRAM_URL }).catch(() => undefined);
       const data = await telegramAction('code');
       setStatus(data);
       setCode(data.code || '');
+      telegramAction('setup', { url: TELEGRAM_URL })
+        .then((s) => setStatus((prev) => ({ ...(prev ?? s), bot: s.bot || prev?.bot || '' })))
+        .catch(() => undefined);
     } catch {
       toast({ title: 'Не удалось получить код', variant: 'destructive' });
     } finally {
@@ -88,7 +90,7 @@ export default function TelegramCard() {
                       @{status?.bot}
                     </a>
                   ) : (
-                    'холдинга'
+                    'холдинга в Telegram'
                   )}
                 </li>
                 <li>Нажмите «Старт»</li>
