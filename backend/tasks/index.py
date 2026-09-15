@@ -114,6 +114,63 @@ def send_email(to_email: str, subject: str, html: str) -> None:
         return
 
 
+def send_email_bulk(letters) -> None:
+    """Отправляет пачку писем одним подключением к почтовому серверу."""
+    host = os.environ.get('SMTP_HOST', '')
+    user = os.environ.get('SMTP_USER', '')
+    password = os.environ.get('SMTP_PASSWORD', '')
+    if not host or not user or not password or not letters:
+        return
+    sender = os.environ.get('SMTP_FROM', user)
+    port = int(os.environ.get('SMTP_PORT', '465'))
+    try:
+        if port == 465:
+            server = smtplib.SMTP_SSL(host, port, timeout=10)
+        else:
+            server = smtplib.SMTP(host, port, timeout=10)
+            server.starttls()
+        server.login(user, password)
+        for to_email, subject, html in letters:
+            if not to_email:
+                continue
+            msg = MIMEText(html, 'html', 'utf-8')
+            msg['Subject'] = Header(subject, 'utf-8')
+            msg['From'] = sender
+            msg['To'] = to_email
+            try:
+                server.sendmail(sender, [to_email], msg.as_string())
+            except Exception:
+                continue
+        server.quit()
+    except Exception:
+        return
+
+
+def mail_layout(greeting: str, lead: str, title: str, rows, footer: str, extra: str = '') -> str:
+    """Собирает письмо в фирменном оформлении холдинга."""
+    cells = ''.join(
+        '<p style="margin:4px 0;font-size:14px;color:#444">' + label + ': <b>' + str(value) + '</b></p>'
+        for label, value in rows if value
+    )
+    return (
+        '<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px">'
+        '<p style="font-size:15px;color:#111">' + greeting + '</p>'
+        '<p style="font-size:14px;color:#333">' + lead + '</p>'
+        '<div style="border:1px solid #e5e5e5;border-radius:14px;padding:16px 18px;margin:16px 0">'
+        '<p style="margin:0 0 10px;font-size:17px;font-weight:600;color:#111">' + title + '</p>'
+        + cells + extra +
+        '</div>'
+        '<p style="font-size:13px;color:#888">' + footer + '</p>'
+        '</div>'
+    )
+
+
+def email_of(cur, login):
+    cur.execute('SELECT email, name FROM users WHERE login = ' + q(login))
+    row = cur.fetchone()
+    return (row[0], row[1]) if row else ('', '')
+
+
 def notify_new_task(cur, task_id, actor, title, restaurant, deadline, template, assignee, subtasks):
     if not assignee or assignee == actor:
         return
@@ -295,12 +352,23 @@ def announce_overdue(cur):
             if who:
                 tg_personal(cur, who[0], 'Просрочена ваша задача\n' + title
                             + '\nСрок был ' + deadline + ' — просрочка ' + str(days) + ' ' + tail)
+                to_email, who_name = email_of(cur, who[0])
+                send_email(
+                    to_email,
+                    'Просрочена задача: ' + title,
+                    mail_layout(
+                        'Здравствуйте, ' + who_name.split(' ')[0] + '!',
+                        'Срок по вашей задаче уже прошёл.',
+                        title,
+                        [('Подразделение', restaurant), ('Срок был', deadline),
+                         ('Просрочка', str(days) + ' ' + tail)],
+                        'Откройте рабочее пространство ICONFOOD и обновите статус задачи.',
+                    ),
+                )
 
 
 def daily_digest(cur):
-    """Утренняя сводка в Telegram: что горит сегодня у каждого сотрудника."""
-    if not os.environ.get('TELEGRAM_BOT_TOKEN'):
-        return
+    """Утренняя сводка: что горит сегодня — письмом на почту и в Telegram."""
     cur.execute("SELECT (NOW() AT TIME ZONE 'Europe/Moscow')::date, "
                 "EXTRACT(HOUR FROM NOW() AT TIME ZONE 'Europe/Moscow')")
     row = cur.fetchone()
@@ -317,7 +385,8 @@ def daily_digest(cur):
     if not cur.fetchone():
         return
     cur.execute(
-        "SELECT login, name, tg_chat_id FROM users WHERE active = TRUE AND tg_chat_id <> '' LIMIT 40"
+        "SELECT login, name, tg_chat_id, email FROM users WHERE active = TRUE "
+        "AND (tg_chat_id <> '' OR email <> '') LIMIT 80"
     )
     people = cur.fetchall()
     if not people:
@@ -335,26 +404,48 @@ def daily_digest(cur):
         if left > 3:
             continue
         by_person.setdefault(assignee, []).append((left, title, restaurant, deadline))
-    for login, name, chat_id in people:
+    letters = []
+    for login, name, chat_id, mail in people:
         rows = by_person.get(name) or []
         if not rows:
             continue
         rows.sort()
         lines = ['Сводка на ' + today.strftime('%d.%m'), '']
+        items = ''
         for left, title, restaurant, deadline in rows[:12]:
             if left < 0:
-                mark = 'просрочено на ' + str(-left) + ' дн.'
+                mark, color = 'просрочено на ' + str(-left) + ' дн.', '#c0392b'
             elif left == 0:
-                mark = 'сегодня'
+                mark, color = 'срок сегодня', '#c0392b'
             elif left == 1:
-                mark = 'завтра'
+                mark, color = 'срок завтра', '#b7791f'
             else:
-                mark = 'через ' + str(left) + ' дн.'
+                mark, color = 'через ' + str(left) + ' дн.', '#2d6a4f'
             place = ' · ' + restaurant if restaurant else ''
             lines.append('• ' + title + place + ' — ' + mark)
+            items += (
+                '<li style="margin:7px 0;color:#333;font-size:14px">' + title
+                + '<span style="color:#888">' + place + '</span> — '
+                '<b style="color:' + color + '">' + mark + '</b></li>'
+            )
         if len(rows) > 12:
             lines.append('…и ещё ' + str(len(rows) - 12))
-        tg_send(chat_id, '\n'.join(lines))
+        if chat_id:
+            tg_send(chat_id, '\n'.join(lines))
+        if mail:
+            letters.append((
+                mail,
+                'Сводка на ' + today.strftime('%d.%m') + ': задач в работе — ' + str(len(rows)),
+                mail_layout(
+                    'Доброе утро, ' + name.split(' ')[0] + '!',
+                    'Вот что требует внимания сегодня.',
+                    'Задачи с близким сроком',
+                    [],
+                    'Полная картина — на доске в рабочем пространстве ICONFOOD.',
+                    '<ul style="margin:6px 0 0;padding-left:18px">' + items + '</ul>',
+                ),
+            ))
+    send_email_bulk(letters)
 
 
 def notify_assignee(cur, task_id, actor, kind, text):
@@ -375,6 +466,30 @@ def notify_assignee(cur, task_id, actor, kind, text):
     )
     head = 'Новый файл в задаче' if kind == 'file' else 'Комментарий к задаче'
     tg_personal(cur, target[0], head + '\n' + title + '\n' + actor + ': ' + text[:500])
+    to_email, who_name = email_of(cur, target[0])
+    if kind == 'file':
+        lead = actor + ' прикрепил файл к вашей задаче.'
+        rows = [('Файл', text[:200]), ('Кто', actor)]
+        extra = ''
+    else:
+        lead = actor + ' оставил комментарий в вашей задаче.'
+        rows = [('Кто', actor)]
+        extra = (
+            '<p style="margin:12px 0 0;font-size:14px;color:#333;border-left:3px solid #e5e5e5;'
+            'padding-left:12px">' + text[:600] + '</p>'
+        )
+    send_email(
+        to_email,
+        head + ': ' + title,
+        mail_layout(
+            'Здравствуйте, ' + who_name.split(' ')[0] + '!',
+            lead,
+            title,
+            rows,
+            'Ответить можно в карточке задачи в рабочем пространстве ICONFOOD.',
+            extra,
+        ),
+    )
 
 
 def load_notifications(cur, login):
