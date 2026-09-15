@@ -296,6 +296,66 @@ def announce_overdue(cur):
                             + '\nСрок был ' + deadline + ' — просрочка ' + str(days) + ' ' + tail)
 
 
+def daily_digest(cur):
+    """Утренняя сводка в Telegram: что горит сегодня у каждого сотрудника."""
+    if not os.environ.get('TELEGRAM_BOT_TOKEN'):
+        return
+    cur.execute("SELECT (NOW() AT TIME ZONE 'Europe/Moscow')::date, "
+                "EXTRACT(HOUR FROM NOW() AT TIME ZONE 'Europe/Moscow')")
+    row = cur.fetchone()
+    today, hour = row[0], int(row[1])
+    if hour < 8:
+        return
+    cur.execute('SELECT 1 FROM digest_log WHERE sent_on = ' + q(today.isoformat()))
+    if cur.fetchone():
+        return
+    cur.execute(
+        'INSERT INTO digest_log (sent_on) VALUES (' + q(today.isoformat()) + ') '
+        'ON CONFLICT (sent_on) DO NOTHING RETURNING sent_on'
+    )
+    if not cur.fetchone():
+        return
+    cur.execute(
+        "SELECT login, name, tg_chat_id FROM users WHERE active = TRUE AND tg_chat_id <> '' LIMIT 40"
+    )
+    people = cur.fetchall()
+    if not people:
+        return
+    cur.execute(
+        "SELECT assignee, title, restaurant, deadline FROM tasks "
+        "WHERE archived = FALSE AND column_id <> 'done' AND deadline <> '' AND assignee <> ''"
+    )
+    by_person = {}
+    for assignee, title, restaurant, deadline in cur.fetchall():
+        due = deadline_date(deadline, today)
+        if not due:
+            continue
+        left = (due - today).days
+        if left > 3:
+            continue
+        by_person.setdefault(assignee, []).append((left, title, restaurant, deadline))
+    for login, name, chat_id in people:
+        rows = by_person.get(name) or []
+        if not rows:
+            continue
+        rows.sort()
+        lines = ['Сводка на ' + today.strftime('%d.%m'), '']
+        for left, title, restaurant, deadline in rows[:12]:
+            if left < 0:
+                mark = 'просрочено на ' + str(-left) + ' дн.'
+            elif left == 0:
+                mark = 'сегодня'
+            elif left == 1:
+                mark = 'завтра'
+            else:
+                mark = 'через ' + str(left) + ' дн.'
+            place = ' · ' + restaurant if restaurant else ''
+            lines.append('• ' + title + place + ' — ' + mark)
+        if len(rows) > 12:
+            lines.append('…и ещё ' + str(len(rows) - 12))
+        tg_send(chat_id, '\n'.join(lines))
+
+
 def notify_assignee(cur, task_id, actor, kind, text):
     cur.execute('SELECT title, assignee FROM tasks WHERE id = ' + str(task_id))
     row = cur.fetchone()
@@ -488,6 +548,8 @@ def handler(event: dict, context) -> dict:
 
     if method == 'GET':
         announce_overdue(cur)
+        conn.commit()
+        daily_digest(cur)
         conn.commit()
         tasks = load_tasks(cur, user['login'])
         notifications = load_notifications(cur, user['login'])
