@@ -578,7 +578,7 @@ def load_channels(cur, user):
 
     cur.execute(
         'SELECT channel_id, id, author, author_login, text, created_at, file_url, file_name, '
-        'file_mime, file_size FROM messages ORDER BY id'
+        'file_mime, file_size FROM messages WHERE archived = FALSE ORDER BY id'
     )
     grouped = {}
     for row in cur.fetchall():
