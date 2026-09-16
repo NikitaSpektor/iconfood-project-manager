@@ -19,7 +19,7 @@ import ScopeFilters, { useDefaultPlace } from './ScopeFilters';
 const columns: ColumnId[] = ['new', 'progress', 'done'];
 
 export default function BoardView({ personal }: { personal: boolean }) {
-  const { tasks, moveTask } = useWorkspace();
+  const { tasks, moveTask, user } = useWorkspace();
   const [open, setOpen] = useState<Task | null>(null);
   const [creating, setCreating] = useState(false);
   const [preset, setPreset] = useState('none');
@@ -28,16 +28,28 @@ export default function BoardView({ personal }: { personal: boolean }) {
   const [owner, setOwner] = useState('all');
   const [over, setOver] = useState<ColumnId | null>(null);
 
-  useDefaultPlace(setPlace);
+  useDefaultPlace(setPlace, personal);
+
+  const mine = useMemo(
+    () =>
+      personal
+        ? tasks.filter((t) => t.personal || assigneesOf(t).includes(user.name))
+        : tasks.filter((t) => !t.personal),
+    [tasks, personal, user.name],
+  );
+
+  const fromHolding = useMemo(
+    () => (personal ? mine.filter((t) => !t.personal).length : 0),
+    [mine, personal],
+  );
 
   const scope = useMemo(
     () =>
-      tasks
-        .filter((t) => t.personal === personal)
+      mine
         .filter((t) => place === 'all' || t.restaurant === place)
         .filter((t) => owner === 'all' || assigneesOf(t).includes(owner))
         .filter((t) => t.title.toLowerCase().includes(query.trim().toLowerCase())),
-    [tasks, personal, place, owner, query],
+    [mine, place, owner, query],
   );
 
 
@@ -54,6 +66,7 @@ export default function BoardView({ personal }: { personal: boolean }) {
             </div>
             <div className="text-[12px] text-muted-foreground">
               {scope.length} задач
+              {personal && fromHolding > 0 && ` · ${fromHolding} с доски холдинга`}
               {place !== 'all' && ` · ${place}`}
               {owner !== 'all' && ` · ${owner}`}
             </div>
@@ -75,7 +88,7 @@ export default function BoardView({ personal }: { personal: boolean }) {
         </div>
 
         <ScopeFilters
-          tasks={tasks.filter((t) => t.personal === personal)}
+          tasks={mine}
           place={place}
           owner={owner}
           onPlace={setPlace}
@@ -126,7 +139,13 @@ export default function BoardView({ personal }: { personal: boolean }) {
 
               <div className="flex-1 min-h-0 overflow-y-auto thin-scrollbar pr-1.5">
                 {list.map((t) => (
-                  <TaskTile key={t.id} task={t} onOpen={setOpen} selected={t.priority === 'critical'} />
+                  <TaskTile
+                    key={t.id}
+                    task={t}
+                    onOpen={setOpen}
+                    selected={t.priority === 'critical'}
+                    shared={personal && !t.personal}
+                  />
                 ))}
                 {list.length === 0 && (
                   <div className="rounded-tile border border-dashed border-line py-8 text-center text-[12px] text-muted-foreground">

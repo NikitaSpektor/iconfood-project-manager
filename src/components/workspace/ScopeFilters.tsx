@@ -22,9 +22,9 @@ export function useScopeFilter(tasks: Task[], place: string, owner: string) {
   );
 }
 
-export function useDefaultPlace(setPlace: (v: string) => void) {
+export function useDefaultPlace(setPlace: (v: string) => void, allPlaces = false) {
   const { user } = useWorkspace();
-  const seesAll = user.role === 'owner';
+  const seesAll = user.role === 'owner' || allPlaces;
   useEffect(() => {
     setPlace(seesAll ? 'all' : user.restaurant || 'all');
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -13,9 +13,10 @@ interface TaskTileProps {
   task: Task;
   onOpen: (task: Task) => void;
   selected?: boolean;
+  shared?: boolean;
 }
 
-export default function TaskTile({ task, onOpen, selected }: TaskTileProps) {
+export default function TaskTile({ task, onOpen, selected, shared }: TaskTileProps) {
   const tone = toneClasses[deadlineTone(task.deadline, task.column)];
   const doneCount = task.subtasks.filter((s) => s.done).length;
 
@@ -37,7 +38,15 @@ export default function TaskTile({ task, onOpen, selected }: TaskTileProps) {
 
       <div className="flex items-start gap-2">
         <span className={cn('mt-1.5 h-1.5 w-1.5 rounded-full flex-none', tone.dot)} />
-        <span className="text-[13px] font-medium leading-snug">{task.title}</span>
+        <span className="text-[13px] font-medium leading-snug flex-1">{task.title}</span>
+        {shared && (
+          <span
+            title="Задача с доски холдинга"
+            className="mt-0.5 flex-none text-muted-foreground"
+          >
+            <Icon name="Columns3" size={12} />
+          </span>
+        )}
       </div>
 
       <div className="mt-1.5 pl-3.5 text-[11px] text-muted-foreground">
