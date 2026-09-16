@@ -33,6 +33,8 @@ interface WorkspaceValue {
   renameSubtask: (taskId: string, subtaskId: string, title: string) => Promise<void>;
   createTask: (task: Omit<Task, 'id'>) => void;
   updateTask: (taskId: string, patch: Partial<Task>) => Promise<void>;
+  deleteTask: (taskId: string) => Promise<void>;
+  canEdit: (task: Task) => boolean;
   addComment: (taskId: string, text: string) => Promise<void>;
   attachFile: (taskId: string, file: File) => Promise<void>;
   removeFile: (taskId: string, fileId: string) => Promise<void>;
@@ -174,6 +176,24 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...patch } : t)));
     apply(await taskAction({ action: 'update', taskId, ...patch }));
     toast({ title: 'Задача обновлена' });
+  }, [apply]);
+
+  const canEdit = useCallback(
+    (task: Task) =>
+      user.role === 'owner' || user.role === 'manager' || (task.personal ?? false),
+    [user.role],
+  );
+
+  const deleteTask = useCallback(async (taskId: string) => {
+    try {
+      apply(await taskAction({ action: 'delete_task', taskId }));
+      toast({ title: 'Задача удалена' });
+    } catch (err) {
+      toast({
+        title: err instanceof Error ? err.message : 'Не удалось удалить задачу',
+        variant: 'destructive',
+      });
+    }
   }, [apply]);
 
   const addComment = useCallback(async (taskId: string, text: string) => {
@@ -323,6 +343,8 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
       renameSubtask,
       createTask,
       updateTask,
+      deleteTask,
+      canEdit,
       addComment,
       attachFile,
       removeFile,
@@ -347,6 +369,8 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
       renameSubtask,
       createTask,
       updateTask,
+      deleteTask,
+      canEdit,
       addComment,
       attachFile,
       removeFile,

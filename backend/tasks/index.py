@@ -34,11 +34,27 @@ def current_user(cur, event):
     if not token:
         return None
     cur.execute(
-        'SELECT u.login, u.name FROM sessions s JOIN users u ON u.id = s.user_id '
+        'SELECT u.login, u.name, u.role FROM sessions s JOIN users u ON u.id = s.user_id '
         'WHERE s.token = ' + q(token) + ' AND s.expires_at > NOW()'
     )
     row = cur.fetchone()
-    return {'login': row[0], 'name': row[1]} if row else None
+    return {'login': row[0], 'name': row[1], 'role': row[2]} if row else None
+
+
+def can_manage(cur, user, task_id=None) -> bool:
+    """Править и удалять задачи могут владельцы, управляющие и хозяин личной задачи."""
+    if user.get('role') in ('owner', 'manager'):
+        return True
+    if task_id:
+        cur.execute('SELECT owner_login FROM tasks WHERE id = ' + str(int(task_id)))
+        row = cur.fetchone()
+        if row and row[0] and row[0] == user['login']:
+            return True
+    return False
+
+
+DENIED = {'statusCode': 403, 'headers': CORS,
+          'body': json.dumps({'error': 'Изменять задачи могут владелец и управляющий'})}
 
 
 def tg_send(chat_id: str, text: str) -> None:
@@ -850,6 +866,10 @@ def handler(event: dict, context) -> dict:
         conn.commit()
     elif action == 'add_subtasks':
         task_id = int(body.get('taskId'))
+        if not can_manage(cur, user, task_id):
+            cur.close()
+            conn.close()
+            return DENIED
         titles = [str(t).strip()[:300] for t in (body.get('titles') or []) if str(t).strip()]
         cur.execute(
             'SELECT COALESCE(MAX(position), 0) FROM subtasks WHERE task_id = ' + str(task_id)
@@ -863,6 +883,10 @@ def handler(event: dict, context) -> dict:
             )
         conn.commit()
     elif action == 'rename_subtask':
+        if not can_manage(cur, user, body.get('taskId')):
+            cur.close()
+            conn.close()
+            return DENIED
         title = str(body.get('title', '')).strip()[:300]
         if not title:
             cur.close()
@@ -873,6 +897,10 @@ def handler(event: dict, context) -> dict:
                     + ' WHERE id = ' + str(int(body.get('subtaskId'))))
         conn.commit()
     elif action == 'delete_subtask':
+        if not can_manage(cur, user, body.get('taskId')):
+            cur.close()
+            conn.close()
+            return DENIED
         cur.execute(
             'UPDATE subtasks SET archived = TRUE WHERE id = ' + str(int(body.get('subtaskId')))
         )
@@ -917,6 +945,26 @@ def handler(event: dict, context) -> dict:
             notify_assignee(cur, int(body.get('taskId')), user['name'], 'comment', text)
             announce_comment(cur, int(body.get('taskId')), user['name'], text)
             conn.commit()
+    elif action == 'delete_task':
+        task_id = int(body.get('taskId', 0))
+        cur.execute('SELECT owner_login FROM tasks WHERE id = ' + str(task_id) + ' AND archived = FALSE')
+        row = cur.fetchone()
+        if not row:
+            cur.close()
+            conn.close()
+            return {'statusCode': 404, 'headers': CORS, 'body': json.dumps({'error': 'Задача не найдена'})}
+        if row[0] and row[0] != user['login']:
+            cur.close()
+            conn.close()
+            return {'statusCode': 403, 'headers': CORS,
+                    'body': json.dumps({'error': 'Это личная задача другого сотрудника'})}
+        if not can_manage(cur, user, task_id):
+            cur.close()
+            conn.close()
+            return DENIED
+        cur.execute('UPDATE tasks SET archived = TRUE WHERE id = ' + str(task_id))
+        cur.execute('UPDATE subtasks SET archived = TRUE WHERE task_id = ' + str(task_id))
+        conn.commit()
     elif action == 'update':
         task_id = int(body.get('taskId', 0))
         cur.execute('SELECT title, restaurant, priority, deadline, assignee, watchers, note, owner_login '
@@ -931,6 +979,10 @@ def handler(event: dict, context) -> dict:
             conn.close()
             return {'statusCode': 403, 'headers': CORS,
                     'body': json.dumps({'error': 'Это личная задача другого сотрудника'})}
+        if not can_manage(cur, user, task_id):
+            cur.close()
+            conn.close()
+            return DENIED
 
         title = str(body.get('title', before[0])).strip()[:200]
         if not title:

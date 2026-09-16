@@ -38,9 +38,19 @@ export default function TaskDialog({
   task: Task | null;
   onClose: () => void;
 }) {
-  const { toggleSubtask, addSubtasks, removeSubtask, renameSubtask, moveTask, tasks } =
-    useWorkspace();
+  const {
+    toggleSubtask,
+    addSubtasks,
+    removeSubtask,
+    renameSubtask,
+    moveTask,
+    deleteTask,
+    canEdit,
+    tasks,
+  } = useWorkspace();
   const live = task ? tasks.find((t) => t.id === task.id) ?? task : null;
+  const mayEdit = live ? canEdit(live) : false;
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editStep, setEditStep] = useState<string | null>(null);
@@ -136,18 +146,63 @@ export default function TaskDialog({
               <DialogTitle className="text-xl leading-tight tracking-tight flex-1">
                 {live.title}
               </DialogTitle>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setEditing(true)}
-                className="rounded-full h-8 px-3 text-[12px] gap-1.5 flex-none mt-0.5"
-              >
-                <Icon name="Pencil" size={13} />
-                Изменить
-              </Button>
+              {mayEdit && (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setEditing(true)}
+                    className="rounded-full h-8 px-3 text-[12px] gap-1.5 flex-none mt-0.5"
+                  >
+                    <Icon name="Pencil" size={13} />
+                    Изменить
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setConfirmDelete(true)}
+                    title="Удалить задачу"
+                    className="rounded-full h-8 w-8 p-0 flex-none mt-0.5 text-muted-foreground hover:text-primary"
+                  >
+                    <Icon name="Trash2" size={13} />
+                  </Button>
+                </>
+              )}
             </div>
           </DialogHeader>
+
+          {confirmDelete && (
+            <div className="mt-3 rounded-tile border border-line bg-surface p-3 space-y-2.5">
+              <p className="text-[12px] text-muted-foreground">
+                Задача уйдёт с доски вместе со всеми шагами. Комментарии и файлы сохранятся в
+                архиве.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={async () => {
+                    await deleteTask(live.id);
+                    setConfirmDelete(false);
+                    onClose();
+                  }}
+                  className="flex-1 rounded-full h-9 text-[13px]"
+                >
+                  Удалить задачу
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setConfirmDelete(false)}
+                  className="flex-1 rounded-full h-9 text-[13px] border-line"
+                >
+                  Отмена
+                </Button>
+              </div>
+            </div>
+          )}
 
           {live.note && (
             <p className="mt-2 text-sm text-muted-foreground">{live.note}</p>
@@ -170,7 +225,7 @@ export default function TaskDialog({
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={aiLoading}
+                disabled={aiLoading || !mayEdit}
                 onClick={askAssistant}
                 className="rounded-full h-8 px-3 text-[12px] gap-1.5"
               >
@@ -192,7 +247,7 @@ export default function TaskDialog({
                       onCheckedChange={() => toggleSubtask(live.id, s.id)}
                       className="mt-0.5"
                     />
-                    {editStep === s.id ? (
+                    {mayEdit && editStep === s.id ? (
                       <Input
                         autoFocus
                         value={stepText}
@@ -215,22 +270,26 @@ export default function TaskDialog({
                         >
                           {s.title}
                         </label>
-                        <button
-                          type="button"
-                          onClick={() => startEdit(s.id, s.title)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground mt-0.5"
-                          aria-label="Изменить подзадачу"
-                        >
-                          <Icon name="Pencil" size={13} />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removeSubtask(live.id, s.id)}
-                          className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary mt-0.5"
-                          aria-label="Удалить подзадачу"
-                        >
-                          <Icon name="X" size={14} />
-                        </button>
+                        {mayEdit && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => startEdit(s.id, s.title)}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground mt-0.5"
+                              aria-label="Изменить подзадачу"
+                            >
+                              <Icon name="Pencil" size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => removeSubtask(live.id, s.id)}
+                              className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-primary mt-0.5"
+                              aria-label="Удалить подзадачу"
+                            >
+                              <Icon name="X" size={14} />
+                            </button>
+                          </>
+                        )}
                       </>
                     )}
                   </li>
@@ -242,7 +301,7 @@ export default function TaskDialog({
               </p>
             )}
 
-            {adding ? (
+            {!mayEdit ? null : adding ? (
               <Input
                 autoFocus
                 value={newStep}

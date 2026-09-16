@@ -12,6 +12,20 @@
       "path": "/",
       "body": {"action": "create", "title": "Тест"},
       "expectedStatus": 401
+    },
+    {
+      "name": "Удаление задачи без токена запрещено",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "delete_task", "taskId": 1},
+      "expectedStatus": 401
+    },
+    {
+      "name": "Правка подзадачи без токена запрещена",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "rename_subtask", "taskId": 1, "subtaskId": 1, "title": "Тест"},
+      "expectedStatus": 401
     }
   ]
 }
