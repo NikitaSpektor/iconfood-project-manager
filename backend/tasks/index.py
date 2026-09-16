@@ -254,13 +254,33 @@ def notify_one_assignee(cur, task_id, actor, title, restaurant, deadline, templa
     tg_personal(cur, target[0], '\n'.join(lines))
 
 
+def target_channels(cur, restaurant, assignee):
+    """Каналы для публикации: подразделение задачи и подразделения ответственных."""
+    units = []
+    if restaurant:
+        units.append(restaurant)
+    named = people_list(assignee)
+    if named:
+        quoted = ', '.join(q(n) for n in named)
+        cur.execute(
+            'SELECT DISTINCT restaurant FROM users WHERE active = TRUE AND name IN (' + quoted + ')'
+        )
+        for (unit,) in cur.fetchall():
+            if unit and unit not in units:
+                units.append(unit)
+    if not units:
+        return []
+    quoted_units = ', '.join(q(u) for u in units)
+    cur.execute(
+        'SELECT DISTINCT id FROM channels WHERE archived = FALSE AND unit IN (' + quoted_units + ')'
+    )
+    return [r[0] for r in cur.fetchall()]
+
+
 def announce_task(cur, actor, title, restaurant, deadline, assignee, template, steps):
-    """Публикует новую задачу сообщением в канал подразделения."""
-    if not restaurant:
-        return
-    cur.execute('SELECT id FROM channels WHERE unit = ' + q(restaurant) + ' AND archived = FALSE')
-    row = cur.fetchone()
-    if not row:
+    """Публикует новую задачу в каналы подразделения задачи и ответственных."""
+    targets = target_channels(cur, restaurant, assignee)
+    if not targets:
         return
     lines = ['Новая задача: ' + title]
     if deadline:
@@ -273,11 +293,13 @@ def announce_task(cur, actor, title, restaurant, deadline, assignee, template, s
         lines.append('Шаблон: ' + template)
     if steps:
         lines.append('Шагов: ' + str(steps))
-    cur.execute(
-        'INSERT INTO messages (channel_id, author, author_login, text) VALUES ('
-        + str(row[0]) + ', ' + q(actor) + ", 'system', " + q('\n'.join(lines)) + ')'
-    )
-    tg_fanout(cur, row[0], '', actor, '\n'.join(lines))
+    body = '\n'.join(lines)
+    for channel_id in targets:
+        cur.execute(
+            'INSERT INTO messages (channel_id, author, author_login, text) VALUES ('
+            + str(channel_id) + ', ' + q(actor) + ", 'system', " + q(body) + ')'
+        )
+        tg_fanout(cur, channel_id, '', actor, body)
 
 
 def announce_done(cur, task_id, actor):
@@ -289,42 +311,46 @@ def announce_done(cur, task_id, actor):
     if not row:
         return
     title, restaurant, assignee, owner_login = row
-    if owner_login or not restaurant:
+    if owner_login:
         return
-    cur.execute('SELECT id FROM channels WHERE unit = ' + q(restaurant) + ' AND archived = FALSE')
-    channel = cur.fetchone()
-    if not channel:
+    targets = target_channels(cur, restaurant, assignee)
+    if not targets:
         return
     lines = ['Задача закрыта: ' + title, 'Закрыл: ' + actor]
     named = [n for n in people_list(assignee) if n != actor]
     if named:
         lines.append(('Ответственные: ' if len(named) > 1 else 'Ответственный: ') + ', '.join(named))
-    cur.execute(
-        'INSERT INTO messages (channel_id, author, author_login, text) VALUES ('
-        + str(channel[0]) + ', ' + q(actor) + ", 'system', " + q('\n'.join(lines)) + ')'
-    )
-    tg_fanout(cur, channel[0], '', actor, '\n'.join(lines))
+    body = '\n'.join(lines)
+    for channel_id in targets:
+        cur.execute(
+            'INSERT INTO messages (channel_id, author, author_login, text) VALUES ('
+            + str(channel_id) + ', ' + q(actor) + ", 'system', " + q(body) + ')'
+        )
+        tg_fanout(cur, channel_id, '', actor, body)
 
 
 def announce_comment(cur, task_id, actor, text):
     """Публикует комментарий к задаче в канал подразделения."""
-    cur.execute('SELECT title, restaurant, owner_login FROM tasks WHERE id = ' + str(task_id))
+    cur.execute(
+        'SELECT title, restaurant, assignee, owner_login FROM tasks WHERE id = ' + str(task_id)
+    )
     row = cur.fetchone()
     if not row:
         return
-    title, restaurant, owner_login = row
-    if owner_login or not restaurant:
+    title, restaurant, assignee, owner_login = row
+    if owner_login:
         return
-    cur.execute('SELECT id FROM channels WHERE unit = ' + q(restaurant) + ' AND archived = FALSE')
-    channel = cur.fetchone()
-    if not channel:
+    targets = target_channels(cur, restaurant, assignee)
+    if not targets:
         return
     body_text = text if len(text) <= 400 else text[:400] + '…'
     lines = ['Комментарий к задаче: ' + title, actor + ': ' + body_text]
-    cur.execute(
-        'INSERT INTO messages (channel_id, author, author_login, text) VALUES ('
-        + str(channel[0]) + ', ' + q(actor) + ", 'system', " + q('\n'.join(lines)) + ')'
-    )
+    body = '\n'.join(lines)
+    for channel_id in targets:
+        cur.execute(
+            'INSERT INTO messages (channel_id, author, author_login, text) VALUES ('
+            + str(channel_id) + ', ' + q(actor) + ", 'system', " + q(body) + ')'
+        )
 
 
 MONTHS = {
@@ -357,12 +383,11 @@ def announce_overdue(cur):
     """Сообщает в каналы подразделений о задачах, просроченных по дедлайну."""
     today = date.today()
     cur.execute(
-        'SELECT t.id, t.title, t.restaurant, t.assignee, t.deadline, c.id FROM tasks t '
-        'JOIN channels c ON c.unit = t.restaurant AND c.archived = FALSE '
+        'SELECT t.id, t.title, t.restaurant, t.assignee, t.deadline FROM tasks t '
         "WHERE t.column_id <> 'done' AND t.overdue_announced = FALSE AND t.owner_login = '' "
         "AND t.deadline <> ''"
     )
-    for task_id, title, restaurant, assignee, deadline, channel_id in cur.fetchall():
+    for task_id, title, restaurant, assignee, deadline in cur.fetchall():
         due = deadline_date(deadline, today)
         if not due or due >= today:
             continue
@@ -379,12 +404,14 @@ def announce_overdue(cur):
         named = people_list(assignee)
         if named:
             lines.append(('Ответственные: ' if len(named) > 1 else 'Ответственный: ') + ', '.join(named))
-        cur.execute(
-            'INSERT INTO messages (channel_id, author, author_login, text) VALUES ('
-            + str(channel_id) + ", 'Контроль сроков', 'system', " + q('\n'.join(lines)) + ')'
-        )
+        body = '\n'.join(lines)
+        for channel_id in target_channels(cur, restaurant, assignee):
+            cur.execute(
+                'INSERT INTO messages (channel_id, author, author_login, text) VALUES ('
+                + str(channel_id) + ", 'Контроль сроков', 'system', " + q(body) + ')'
+            )
+            tg_fanout(cur, channel_id, '', 'Контроль сроков', body)
         cur.execute('UPDATE tasks SET overdue_announced = TRUE WHERE id = ' + str(task_id))
-        tg_fanout(cur, channel_id, '', 'Контроль сроков', '\n'.join(lines))
         for person in named:
             cur.execute('SELECT login FROM users WHERE name = ' + q(person))
             who = cur.fetchone()
