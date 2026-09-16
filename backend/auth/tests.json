@@ -14,6 +14,20 @@
       "expectedStatus": 401
     },
     {
+      "name": "Правка сотрудника без входа запрещена",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "update", "login": "elena.metla", "name": "Тест", "email": "t@iconfood.ru"},
+      "expectedStatus": 401
+    },
+    {
+      "name": "Отключение без входа запрещено",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "dismiss", "login": "elena.metla"},
+      "expectedStatus": 401
+    },
+    {
       "name": "Успешный вход",
       "method": "POST",
       "path": "/",

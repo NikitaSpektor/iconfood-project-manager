@@ -62,8 +62,8 @@ export async function logout() {
   clearToken();
 }
 
-export async function fetchMembers() {
-  const res = await fetch(`${AUTH_URL}?action=members`);
+export async function fetchMembers(scope: 'active' | 'dismissed' = 'active') {
+  const res = await fetch(`${AUTH_URL}?action=members&scope=${scope}`);
   const data = await res.json();
   return data.members as {
     id: string;
@@ -72,8 +72,34 @@ export async function fetchMembers() {
     email: string;
     role: string;
     restaurant: string;
+    position?: string;
     online: boolean;
   }[];
+}
+
+export async function updateMember(payload: {
+  login: string;
+  name: string;
+  email: string;
+  position?: string;
+  role?: string;
+  restaurant?: string;
+}) {
+  return request(AUTH_URL, { method: 'POST', body: JSON.stringify({ action: 'update', ...payload }) });
+}
+
+export async function dismissMember(loginName: string) {
+  return request(AUTH_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'dismiss', login: loginName }),
+  });
+}
+
+export async function restoreMember(loginName: string) {
+  return request(AUTH_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'restore', login: loginName }),
+  });
 }
 
 export async function inviteMember(payload: {
@@ -81,6 +107,7 @@ export async function inviteMember(payload: {
   email: string;
   role: string;
   restaurant: string;
+  position?: string;
 }) {
   return request(AUTH_URL, { method: 'POST', body: JSON.stringify({ action: 'invite', ...payload }) });
 }

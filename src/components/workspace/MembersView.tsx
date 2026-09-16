@@ -12,24 +12,47 @@ import {
 import { cn } from '@/lib/utils';
 import { RESTAURANTS, roleLabels, roleRights, type Member, type Role } from '@/data/workspace';
 import { toast } from '@/hooks/use-toast';
-import { fetchMembers, inviteMember, updateRole } from '@/lib/api';
+import { fetchMembers, inviteMember, restoreMember, updateRole } from '@/lib/api';
+import { useWorkspace } from '@/hooks/use-workspace';
+import MemberEditDialog from './MemberEditDialog';
 
 export default function MembersView() {
+  const { user } = useWorkspace();
+  const canManage = user.role === 'owner' || user.role === 'manager';
   const [people, setPeople] = useState<Member[]>([]);
   const [query, setQuery] = useState('');
   const [invite, setInvite] = useState('');
   const [inviteName, setInviteName] = useState('');
+  const [invitePosition, setInvitePosition] = useState('');
+  const [inviteRest, setInviteRest] = useState(RESTAURANTS[0]);
   const [inviteRole, setInviteRole] = useState<Role>('staff');
   const [error, setError] = useState('');
   const [filterRest, setFilterRest] = useState('all');
   const [filterRole, setFilterRole] = useState('all');
   const [filterPos, setFilterPos] = useState('all');
+  const [scope, setScope] = useState<'active' | 'dismissed'>('active');
+  const [editing, setEditing] = useState<Member | null>(null);
 
-  useEffect(() => {
-    fetchMembers()
+  function reload(next: 'active' | 'dismissed' = scope) {
+    fetchMembers(next)
       .then((data) => setPeople(data as Member[]))
       .catch(() => toast({ title: 'Не удалось загрузить участников', variant: 'destructive' }));
-  }, []);
+  }
+
+  useEffect(() => {
+    fetchMembers(scope)
+      .then((data) => setPeople(data as Member[]))
+      .catch(() => toast({ title: 'Не удалось загрузить участников', variant: 'destructive' }));
+  }, [scope]);
+
+  function bringBack(login: string, name: string) {
+    restoreMember(login)
+      .then(() => {
+        setPeople((p) => p.filter((m) => m.login !== login));
+        toast({ title: 'Сотрудник восстановлен', description: `${name} снова в команде` });
+      })
+      .catch(() => toast({ title: 'Не удалось восстановить', variant: 'destructive' }));
+  }
 
   const positions = useMemo(
     () =>
@@ -78,9 +101,11 @@ export default function MembersView() {
         name: inviteName.trim(),
         email: invite.trim(),
         role: inviteRole,
-        restaurant: RESTAURANTS[0],
+        restaurant: inviteRest,
+        position: invitePosition.trim(),
       });
-      const data = await fetchMembers();
+      setScope('active');
+      const data = await fetchMembers('active');
       setPeople(data as Member[]);
       toast({
         title: 'Сотрудник добавлен',
@@ -88,6 +113,7 @@ export default function MembersView() {
       });
       setInvite('');
       setInviteName('');
+      setInvitePosition('');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось добавить');
     }
@@ -124,12 +150,32 @@ export default function MembersView() {
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <div className="mr-auto">
             <div className="font-head font-semibold text-[14px]">
-              Участники холдинга · {people.length}
+              {scope === 'active' ? 'Участники холдинга' : 'Отключённые сотрудники'} · {people.length}
             </div>
             <div className="text-[12px] text-muted-foreground">
-              Показано {list.length} · роль и ресторан меняются на месте
+              Показано {list.length}
+              {scope === 'active'
+                ? ' · роль и ресторан меняются на месте'
+                : ' · доступ закрыт, задачи сохранены'}
             </div>
           </div>
+          {canManage && (
+            <div className="flex items-center gap-1 rounded-full bg-card border border-line p-1">
+              {(['active', 'dismissed'] as const).map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => setScope(s)}
+                  className={cn(
+                    'rounded-full px-3 h-7 text-[12px] transition-colors',
+                    scope === s ? 'bg-surface text-foreground' : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {s === 'active' ? 'В команде' : 'Уволенные'}
+                </button>
+              ))}
+            </div>
+          )}
           <Select value={filterRest} onValueChange={setFilterRest}>
             <SelectTrigger className="flex-1 min-w-[130px] sm:flex-none sm:w-[150px] h-9 rounded-full text-[12px] border-line bg-card">
               <SelectValue />
@@ -224,6 +270,18 @@ export default function MembersView() {
                   className="w-full bg-transparent text-[11px] text-muted-foreground outline-none focus:text-foreground truncate"
                 />
               </div>
+              {scope === 'dismissed' ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => bringBack(m.login, m.name)}
+                  className="rounded-full h-8 text-[12px] border-line gap-1.5"
+                >
+                  <Icon name="RotateCcw" size={14} />
+                  Вернуть в команду
+                </Button>
+              ) : (
+              <>
               <Select
                 value={m.restaurant}
                 onValueChange={(v) => changeRestaurant(m.id, m.login, v)}
@@ -251,16 +309,30 @@ export default function MembersView() {
                   ))}
                 </SelectContent>
               </Select>
+              {canManage && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setEditing(m)}
+                  title="Изменить карточку"
+                  className="h-8 w-8 p-0 rounded-full text-muted-foreground hover:text-foreground flex-none"
+                >
+                  <Icon name="Pencil" size={15} />
+                </Button>
+              )}
+              </>
+              )}
             </div>
           ))}
         </div>
       </section>
 
       <div className="flex flex-col gap-3.5 min-h-0">
+        {canManage && (
         <section className="bento p-5 animate-fade-in [animation-delay:.1s]">
           <div className="eyebrow mb-3.5">
             <i className="h-2.5 w-2.5 rounded-[3px] bg-bar" />
-            Добавить по почте
+            Добавить сотрудника
           </div>
           <form onSubmit={sendInvite} className="space-y-3">
             <Input
@@ -275,6 +347,24 @@ export default function MembersView() {
               placeholder="имя@iconfood.ru"
               className="rounded-xl bg-card border-line"
             />
+            <Input
+              value={invitePosition}
+              onChange={(e) => setInvitePosition(e.target.value)}
+              placeholder="Должность"
+              className="rounded-xl bg-card border-line"
+            />
+            <Select value={inviteRest} onValueChange={setInviteRest}>
+              <SelectTrigger className="rounded-xl border-line">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="rounded-2xl">
+                {RESTAURANTS.map((r) => (
+                  <SelectItem key={r} value={r}>
+                    {r}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as Role)}>
               <SelectTrigger className="rounded-xl border-line">
                 <SelectValue />
@@ -294,11 +384,12 @@ export default function MembersView() {
               </p>
             )}
             <Button type="submit" className="w-full rounded-full h-10 gap-1.5">
-              <Icon name="Mail" size={15} />
-              Отправить приглашение
+              <Icon name="UserPlus" size={15} />
+              Добавить в команду
             </Button>
           </form>
         </section>
+        )}
 
         <section className="bento p-5 flex-1 min-h-0 overflow-y-auto no-scrollbar animate-fade-in [animation-delay:.16s]">
           <div className="eyebrow mb-3.5">
@@ -315,6 +406,13 @@ export default function MembersView() {
           </ul>
         </section>
       </div>
+
+      <MemberEditDialog
+        member={editing}
+        onOpenChange={(v) => !v && setEditing(null)}
+        onSaved={() => reload()}
+        canDismiss={canManage && editing?.login !== user.login}
+      />
     </div>
   );
 }

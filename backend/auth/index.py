@@ -48,6 +48,33 @@ def sync_unit_channel(cur, login: str, unit: str) -> None:
     )
 
 
+def current_user(cur, event):
+    """Возвращает сотрудника по токену сессии или None."""
+    headers = event.get('headers') or {}
+    token = headers.get('X-Auth-Token') or headers.get('x-auth-token', '')
+    if not token:
+        return None
+    cur.execute(
+        'SELECT u.name, u.login, u.role FROM sessions s JOIN users u ON u.id = s.user_id '
+        'WHERE s.token = ' + q(token) + ' AND s.expires_at > NOW()'
+    )
+    row = cur.fetchone()
+    return {'name': row[0], 'login': row[1], 'role': row[2]} if row else None
+
+
+def rename_everywhere(cur, old_name: str, new_name: str) -> None:
+    """Переносит имя сотрудника во все задачи, комментарии и файлы."""
+    if not old_name or old_name == new_name:
+        return
+    cur.execute('UPDATE tasks SET assignee = replace(assignee, ' + q(old_name) + ', ' + q(new_name)
+                + ') WHERE assignee LIKE ' + q('%' + old_name + '%'))
+    cur.execute('UPDATE tasks SET watchers = replace(watchers, ' + q(old_name) + ', ' + q(new_name)
+                + ') WHERE watchers LIKE ' + q('%' + old_name + '%'))
+    cur.execute('UPDATE comments SET author = ' + q(new_name) + ' WHERE author = ' + q(old_name))
+    cur.execute('UPDATE messages SET author = ' + q(new_name) + ' WHERE author = ' + q(old_name))
+    cur.execute('UPDATE attachments SET author = ' + q(new_name) + ' WHERE author = ' + q(old_name))
+
+
 def handler(event: dict, context) -> dict:
     """Вход сотрудников ICONFOOD по логину и паролю, выдача и проверка токена сессии."""
     method = event.get('httpMethod', 'GET')
@@ -60,7 +87,10 @@ def handler(event: dict, context) -> dict:
     if method == 'GET':
         action = (event.get('queryStringParameters') or {}).get('action', 'me')
         if action == 'members':
-            cur.execute('SELECT id, name, login, email, role, restaurant, position FROM users WHERE active = TRUE ORDER BY id')
+            only = (event.get('queryStringParameters') or {}).get('scope', 'active')
+            where = 'active = FALSE' if only == 'dismissed' else 'active = TRUE'
+            cur.execute('SELECT id, name, login, email, role, restaurant, position FROM users WHERE '
+                        + where + " AND login NOT LIKE '%.merged' ORDER BY id")
             members = [
                 {'id': str(r[0]), 'name': r[1], 'login': r[2], 'email': r[3], 'role': r[4],
                  'restaurant': r[5], 'position': r[6], 'online': r[0] % 3 != 2}
@@ -134,16 +164,31 @@ def handler(event: dict, context) -> dict:
         email = str(body.get('email', '')).strip().lower()
         role = str(body.get('role', 'staff'))
         restaurant = str(body.get('restaurant', ''))
+        me = current_user(cur, event)
+        if not me or me['role'] not in ('owner', 'manager'):
+            cur.close()
+            conn.close()
+            return {'statusCode': 403, 'headers': CORS,
+                    'body': json.dumps({'error': 'Добавлять сотрудников может руководитель'})}
         if not name or '@' not in email:
             cur.close()
             conn.close()
             return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'error': 'Укажите имя и корректную почту'})}
+        cur.execute('SELECT active FROM users WHERE email = ' + q(email))
+        same = cur.fetchone()
+        if same:
+            cur.close()
+            conn.close()
+            return {'statusCode': 409, 'headers': CORS, 'body': json.dumps({
+                'error': 'Сотрудник с такой почтой уже в системе'
+                         if same[0] else 'Такой сотрудник был отключён — восстановите его карточку'})}
         login = email.split('@')[0]
         password = secrets.token_hex(4)
         cur.execute(
-            'INSERT INTO users (name, login, email, password_hash, role, restaurant) VALUES ('
+            'INSERT INTO users (name, login, email, password_hash, role, restaurant, position) VALUES ('
             + q(name) + ', ' + q(login) + ', ' + q(email) + ', ' + q(hash_password(login, password)) + ', '
-            + q(role) + ', ' + q(restaurant) + ') ON CONFLICT (login) DO NOTHING RETURNING id'
+            + q(role) + ', ' + q(restaurant) + ', ' + q(str(body.get('position', ''))[:120])
+            + ') ON CONFLICT (login) DO NOTHING RETURNING id'
         )
         created = cur.fetchone()
         if created:
@@ -154,6 +199,82 @@ def handler(event: dict, context) -> dict:
         if not created:
             return {'statusCode': 409, 'headers': CORS, 'body': json.dumps({'error': 'Такой сотрудник уже есть'})}
         return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'ok': True, 'login': login, 'password': password})}
+
+    if action in ('update', 'dismiss', 'restore'):
+        me = current_user(cur, event)
+        if not me:
+            cur.close()
+            conn.close()
+            return {'statusCode': 401, 'headers': CORS, 'body': json.dumps({'error': 'Требуется вход'})}
+        if me['role'] not in ('owner', 'manager'):
+            cur.close()
+            conn.close()
+            return {'statusCode': 403, 'headers': CORS,
+                    'body': json.dumps({'error': 'Недостаточно прав'})}
+        login = str(body.get('login', '')).strip().lower()
+        cur.execute('SELECT name, role FROM users WHERE login = ' + q(login))
+        target = cur.fetchone()
+        if not target:
+            cur.close()
+            conn.close()
+            return {'statusCode': 404, 'headers': CORS, 'body': json.dumps({'error': 'Сотрудник не найден'})}
+
+        if action == 'dismiss':
+            if login == me['login']:
+                cur.close()
+                conn.close()
+                return {'statusCode': 400, 'headers': CORS,
+                        'body': json.dumps({'error': 'Нельзя отключить самого себя'})}
+            cur.execute('UPDATE users SET active = FALSE WHERE login = ' + q(login))
+            cur.execute('UPDATE channel_members SET active = FALSE WHERE user_login = ' + q(login))
+            cur.execute('UPDATE sessions SET expires_at = NOW() WHERE user_id IN '
+                        '(SELECT id FROM users WHERE login = ' + q(login) + ')')
+            conn.commit()
+            cur.close()
+            conn.close()
+            return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'ok': True})}
+
+        if action == 'restore':
+            cur.execute('UPDATE users SET active = TRUE WHERE login = ' + q(login))
+            conn.commit()
+            cur.close()
+            conn.close()
+            return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'ok': True})}
+
+        name = str(body.get('name', '')).strip()[:120]
+        email = str(body.get('email', '')).strip().lower()[:160]
+        if not name or len(name) < 3:
+            cur.close()
+            conn.close()
+            return {'statusCode': 400, 'headers': CORS,
+                    'body': json.dumps({'error': 'Имя — минимум 3 символа'})}
+        if '@' not in email or '.' not in email.split('@')[-1]:
+            cur.close()
+            conn.close()
+            return {'statusCode': 400, 'headers': CORS,
+                    'body': json.dumps({'error': 'Укажите корректную почту'})}
+        cur.execute('SELECT 1 FROM users WHERE email = ' + q(email) + ' AND login <> ' + q(login))
+        if cur.fetchone():
+            cur.close()
+            conn.close()
+            return {'statusCode': 409, 'headers': CORS,
+                    'body': json.dumps({'error': 'Эта почта уже занята'})}
+        sets = 'name = ' + q(name) + ', email = ' + q(email)
+        if 'position' in body:
+            sets += ', position = ' + q(str(body.get('position', ''))[:120])
+        if body.get('role'):
+            sets += ', role = ' + q(str(body.get('role')))
+        restaurant = str(body.get('restaurant', '')).strip()
+        if restaurant:
+            sets += ', restaurant = ' + q(restaurant)
+        cur.execute('UPDATE users SET ' + sets + ' WHERE login = ' + q(login))
+        rename_everywhere(cur, target[0], name)
+        if restaurant:
+            sync_unit_channel(cur, login, restaurant)
+        conn.commit()
+        cur.close()
+        conn.close()
+        return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'ok': True})}
 
     if action == 'role':
         login = str(body.get('login', '')).strip().lower()
