@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { columnLabels, priorityLabels, type Task } from '@/data/workspace';
+import { assigneesOf } from '@/lib/assignees';
 
 interface SliceRow {
   name: string;
@@ -54,7 +55,7 @@ export function exportReport({
     'Статус': columnLabels[t.column],
     'Приоритет': priorityLabels[t.priority],
     'Дедлайн': t.deadline,
-    'Ответственный': t.assignee,
+    'Ответственные': assigneesOf(t).join(', '),
     'Шаблон': t.template ?? '',
     'Подзадач': t.subtasks.length,
     'Выполнено': t.subtasks.filter((s) => s.done).length,

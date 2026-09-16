@@ -12,12 +12,13 @@ import {
   type ColumnId,
 } from '@/data/workspace';
 import { parseDeadline } from '@/lib/dates';
+import { assigneesOf } from '@/lib/assignees';
 import { toast } from '@/hooks/use-toast';
 import ScopeFilters, { useDefaultPlace, useScopeFilter } from './ScopeFilters';
 import { exportReport } from '@/lib/export-report';
 
 const periods = ['Неделя', 'Месяц', 'Квартал'];
-const slices = ['По ресторанам', 'По колонкам', 'По важности'];
+const slices = ['По ресторанам', 'По ответственным', 'По колонкам', 'По важности'];
 
 export default function ReportsView() {
   const { tasks } = useWorkspace();
@@ -64,6 +65,19 @@ export default function ReportsView() {
         done: rows.filter((t) => keys.includes(t.priority)).length,
         total: rows.length,
       }));
+    }
+    if (slice === 'По ответственным') {
+      const names = Array.from(new Set(rows.flatMap((t) => assigneesOf(t)))).sort((a, b) =>
+        a.localeCompare(b, 'ru'),
+      );
+      return names.map((name) => {
+        const list = rows.filter((t) => assigneesOf(t).includes(name));
+        return {
+          name,
+          done: list.filter((t) => t.column === 'done').length,
+          total: list.length,
+        };
+      });
     }
     return RESTAURANTS.map((r) => {
       const list = rows.filter((t) => t.restaurant === r);

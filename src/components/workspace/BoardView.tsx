@@ -3,6 +3,7 @@ import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { assigneesOf } from '@/lib/assignees';
 import { useWorkspace } from '@/hooks/use-workspace';
 import {
   TEMPLATES,
@@ -34,7 +35,7 @@ export default function BoardView({ personal }: { personal: boolean }) {
       tasks
         .filter((t) => t.personal === personal)
         .filter((t) => place === 'all' || t.restaurant === place)
-        .filter((t) => owner === 'all' || t.assignee === owner)
+        .filter((t) => owner === 'all' || assigneesOf(t).includes(owner))
         .filter((t) => t.title.toLowerCase().includes(query.trim().toLowerCase())),
     [tasks, personal, place, owner, query],
   );

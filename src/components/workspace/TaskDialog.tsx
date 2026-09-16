@@ -9,6 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import Icon from '@/components/ui/icon';
+import { assigneesOf, assigneesLabel } from '@/lib/assignees';
 import {
   columnLabels,
   coverClasses,
@@ -176,7 +177,8 @@ export default function TaskDialog({
           <div className="mt-5 rounded-tile bg-surface border border-line p-3.5">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Icon name="UserCheck" size={14} />
-              Ответственный: <span className="text-foreground font-medium">{live.assignee}</span>
+              {assigneesOf(live).length > 1 ? 'Ответственные' : 'Ответственный'}:{' '}
+              <span className="text-foreground font-medium">{assigneesLabel(live)}</span>
             </div>
             {live.watchers.length > 0 && (
               <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
@@ -186,7 +188,8 @@ export default function TaskDialog({
             )}
             <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
               <Icon name="Mail" size={14} />
-              Уведомление о задаче ушло на почту ответственного
+              Уведомление о задаче ушло на почту{' '}
+              {assigneesOf(live).length > 1 ? 'всех ответственных' : 'ответственного'}
             </div>
           </div>
 

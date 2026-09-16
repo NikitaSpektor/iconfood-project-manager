@@ -171,7 +171,26 @@ def email_of(cur, login):
     return (row[0], row[1]) if row else ('', '')
 
 
+def people_list(value) -> list:
+    """Разбирает поле ответственных: несколько имён хранятся через «|»."""
+    if isinstance(value, list):
+        names = value
+    else:
+        names = str(value or '').split('|')
+    out = []
+    for name in names:
+        name = name.strip()
+        if name and name not in out:
+            out.append(name)
+    return out
+
+
 def notify_new_task(cur, task_id, actor, title, restaurant, deadline, template, assignee, subtasks):
+    for name in people_list(assignee):
+        notify_one_assignee(cur, task_id, actor, title, restaurant, deadline, template, name, subtasks)
+
+
+def notify_one_assignee(cur, task_id, actor, title, restaurant, deadline, template, assignee, subtasks):
     if not assignee or assignee == actor:
         return
     cur.execute('SELECT login, email FROM users WHERE name = ' + q(assignee))
@@ -230,8 +249,10 @@ def announce_task(cur, actor, title, restaurant, deadline, assignee, template, s
     lines = ['Новая задача: ' + title]
     if deadline:
         lines.append('Дедлайн: ' + deadline)
-    if assignee:
-        lines.append('Ответственный: ' + assignee)
+    named = people_list(assignee)
+    if named:
+        label = 'Ответственные: ' if len(named) > 1 else 'Ответственный: '
+        lines.append(label + ', '.join(named))
     if template:
         lines.append('Шаблон: ' + template)
     if steps:
@@ -259,8 +280,9 @@ def announce_done(cur, task_id, actor):
     if not channel:
         return
     lines = ['Задача закрыта: ' + title, 'Закрыл: ' + actor]
-    if assignee and assignee != actor:
-        lines.append('Ответственный: ' + assignee)
+    named = [n for n in people_list(assignee) if n != actor]
+    if named:
+        lines.append(('Ответственные: ' if len(named) > 1 else 'Ответственный: ') + ', '.join(named))
     cur.execute(
         'INSERT INTO messages (channel_id, author, author_login, text) VALUES ('
         + str(channel[0]) + ', ' + q(actor) + ", 'system', " + q('\n'.join(lines)) + ')'
@@ -338,16 +360,17 @@ def announce_overdue(cur):
             'Просрочена задача: ' + title,
             'Срок был ' + deadline + ' — просрочка ' + str(days) + ' ' + tail,
         ]
-        if assignee:
-            lines.append('Ответственный: ' + assignee)
+        named = people_list(assignee)
+        if named:
+            lines.append(('Ответственные: ' if len(named) > 1 else 'Ответственный: ') + ', '.join(named))
         cur.execute(
             'INSERT INTO messages (channel_id, author, author_login, text) VALUES ('
             + str(channel_id) + ", 'Контроль сроков', 'system', " + q('\n'.join(lines)) + ')'
         )
         cur.execute('UPDATE tasks SET overdue_announced = TRUE WHERE id = ' + str(task_id))
         tg_fanout(cur, channel_id, '', 'Контроль сроков', '\n'.join(lines))
-        if assignee:
-            cur.execute('SELECT login FROM users WHERE name = ' + q(assignee))
+        for person in named:
+            cur.execute('SELECT login FROM users WHERE name = ' + q(person))
             who = cur.fetchone()
             if who:
                 tg_personal(cur, who[0], 'Просрочена ваша задача\n' + title
@@ -403,7 +426,8 @@ def daily_digest(cur):
         left = (due - today).days
         if left > 3:
             continue
-        by_person.setdefault(assignee, []).append((left, title, restaurant, deadline))
+        for person in people_list(assignee):
+            by_person.setdefault(person, []).append((left, title, restaurant, deadline))
     letters = []
     for login, name, chat_id, mail in people:
         rows = by_person.get(name) or []
@@ -454,8 +478,12 @@ def notify_assignee(cur, task_id, actor, kind, text):
     if not row:
         return
     title, assignee = row
-    if not assignee or assignee == actor:
-        return
+    for person in people_list(assignee):
+        if person != actor:
+            notify_one_activity(cur, task_id, title, actor, kind, text, person)
+
+
+def notify_one_activity(cur, task_id, title, actor, kind, text, assignee):
     cur.execute('SELECT login FROM users WHERE name = ' + q(assignee))
     target = cur.fetchone()
     if not target:
@@ -633,7 +661,8 @@ def load_tasks(cur, login):
             'priority': r[4],
             'cover': r[5],
             'deadline': r[6],
-            'assignee': r[7],
+            'assignee': people_list(r[7])[0] if people_list(r[7]) else '',
+            'assignees': people_list(r[7]),
             'watchers': [w for w in (r[8] or '').split('|') if w],
             'template': r[9],
             'note': r[10],
@@ -869,7 +898,8 @@ def handler(event: dict, context) -> dict:
             'template, note, track, gantt_start, gantt_span, owner_login) VALUES ('
             + q(body.get('title')) + ', ' + q(body.get('restaurant', '')) + ', ' + q(body.get('column', 'new')) + ', '
             + q(body.get('priority', 'normal')) + ', ' + q(body.get('cover', 'none')) + ', ' + q(body.get('deadline', '')) + ', '
-            + q(body.get('assignee', '')) + ', ' + q('|'.join(body.get('watchers') or [])) + ', '
+            + q('|'.join(people_list(body.get('assignees') or body.get('assignee', '')))) + ', '
+            + q('|'.join(body.get('watchers') or [])) + ', '
             + q(body.get('template')) + ', ' + q(body.get('note')) + ', ' + q(body.get('track', 'Задачи')) + ', '
             + str(int(body.get('ganttStart', 10))) + ', ' + str(int(body.get('ganttSpan', 30))) + ', ' + q(owner) + ') RETURNING id'
         )
@@ -880,15 +910,15 @@ def handler(event: dict, context) -> dict:
                 'INSERT INTO subtasks (task_id, title, done, position) VALUES ('
                 + str(new_id) + ', ' + q(s.get('title')) + ', false, ' + str(i) + ')'
             )
+        named = people_list(body.get('assignees') or body.get('assignee', ''))
         notify_new_task(
             cur, new_id, user['name'], str(body.get('title', '')), str(body.get('restaurant', '')),
-            str(body.get('deadline', '')), body.get('template'), str(body.get('assignee', '')), subtasks,
+            str(body.get('deadline', '')), body.get('template'), named, subtasks,
         )
         if not body.get('personal'):
             announce_task(
                 cur, user['name'], str(body.get('title', '')), str(body.get('restaurant', '')),
-                str(body.get('deadline', '')), str(body.get('assignee', '')),
-                body.get('template'), len(subtasks),
+                str(body.get('deadline', '')), named, body.get('template'), len(subtasks),
             )
         conn.commit()
 

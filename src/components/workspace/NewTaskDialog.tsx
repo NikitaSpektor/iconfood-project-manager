@@ -16,6 +16,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Checkbox } from '@/components/ui/checkbox';
 import Icon from '@/components/ui/icon';
 import {
   RESTAURANTS,
@@ -47,7 +49,7 @@ export default function NewTaskDialog({
   const { createTask } = useWorkspace();
   const [people, setPeople] = useState<{ id: string; name: string }[]>([]);
   const [title, setTitle] = useState('');
-  const [assignee, setAssignee] = useState('');
+  const [assignees, setAssignees] = useState<string[]>([]);
 
   const [restaurant, setRestaurant] = useState(RESTAURANTS[0]);
   const [priority, setPriority] = useState<Priority>('normal');
@@ -69,7 +71,9 @@ export default function NewTaskDialog({
       .then((data) => {
         setPeople(data);
         const match = owner && data.find((m) => m.name === owner);
-        setAssignee((prev) => (match ? match.name : prev || data[0]?.name || ''));
+        setAssignees((prev) =>
+          match ? [match.name] : prev.length ? prev : [data[0]?.name].filter(Boolean),
+        );
       })
       .catch(() => undefined);
   }, [open, presetTemplate]);
@@ -81,7 +85,13 @@ export default function NewTaskDialog({
     setAiNote('');
     if (!tpl?.owner) return;
     const match = people.find((m) => m.name === tpl.owner);
-    if (match) setAssignee(match.name);
+    if (match) setAssignees([match.name]);
+  }
+
+  function toggleAssignee(name: string) {
+    setAssignees((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
+    );
   }
 
   async function askAssistant() {
@@ -136,7 +146,8 @@ export default function NewTaskDialog({
       priority,
       cover,
       deadline: formatDeadline(new Date(deadline)),
-      assignee,
+      assignee: assignees[0] ?? '',
+      assignees,
       watchers: [],
       template: tpl?.name,
       personal,
@@ -180,19 +191,40 @@ export default function NewTaskDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Ответственный</Label>
-              <Select value={assignee} onValueChange={setAssignee}>
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl">
-                  {people.map((m) => (
-                    <SelectItem key={m.id} value={m.name}>
-                      {m.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Ответственные</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full rounded-xl justify-between font-normal"
+                  >
+                    <span className="truncate">
+                      {assignees.length === 0
+                        ? 'Выберите сотрудников'
+                        : assignees.length <= 2
+                          ? assignees.join(', ')
+                          : `${assignees[0]} и ещё ${assignees.length - 1}`}
+                    </span>
+                    <Icon name="ChevronsUpDown" size={14} className="opacity-50 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[260px] rounded-2xl p-1.5" align="start">
+                  <div className="max-h-64 overflow-y-auto">
+                    {people.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => toggleAssignee(m.name)}
+                        className="w-full flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm hover:bg-muted text-left"
+                      >
+                        <Checkbox checked={assignees.includes(m.name)} className="pointer-events-none" />
+                        <span className="truncate">{m.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-1.5">
               <Label>Ресторан</Label>

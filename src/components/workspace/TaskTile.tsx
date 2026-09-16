@@ -6,6 +6,7 @@ import {
   type Task,
 } from '@/data/workspace';
 import { deadlineLabel } from '@/lib/dates';
+import { assigneesOf } from '@/lib/assignees';
 import { cn } from '@/lib/utils';
 
 interface TaskTileProps {
@@ -48,7 +49,7 @@ export default function TaskTile({ task, onOpen, selected }: TaskTileProps) {
 
       <div className="mt-2.5 pl-3.5 flex items-center justify-between">
         <div className="flex">
-          {[task.assignee, ...task.watchers].slice(0, 3).map((name, i) => (
+          {[...assigneesOf(task), ...task.watchers].slice(0, 3).map((name, i) => (
             <span
               key={name}
               className="h-[18px] w-[18px] rounded-full bg-avatar border-2 border-card text-[8px] font-head font-semibold text-foreground/70 flex items-center justify-center"

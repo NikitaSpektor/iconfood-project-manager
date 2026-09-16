@@ -10,13 +10,14 @@ import {
 } from '@/components/ui/select';
 import { useWorkspace } from '@/hooks/use-workspace';
 import { RESTAURANTS, type Task } from '@/data/workspace';
+import { assigneesOf } from '@/lib/assignees';
 
 export function useScopeFilter(tasks: Task[], place: string, owner: string) {
   return useMemo(
     () =>
       tasks
         .filter((t) => place === 'all' || t.restaurant === place)
-        .filter((t) => owner === 'all' || t.assignee === owner),
+        .filter((t) => owner === 'all' || assigneesOf(t).includes(owner)),
     [tasks, place, owner],
   );
 }
@@ -47,7 +48,7 @@ export default function ScopeFilters({
 
   const owners = useMemo(
     () =>
-      Array.from(new Set(tasks.map((t) => t.assignee).filter(Boolean))).sort((a, b) =>
+      Array.from(new Set(tasks.flatMap((t) => assigneesOf(t)))).sort((a, b) =>
         a.localeCompare(b, 'ru'),
       ),
     [tasks],

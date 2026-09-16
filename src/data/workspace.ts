@@ -37,6 +37,7 @@ export interface Task {
   cover: Cover;
   deadline: string;
   assignee: string;
+  assignees?: string[];
   watchers: string[];
   template?: string;
   personal: boolean;

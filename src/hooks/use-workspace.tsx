@@ -6,6 +6,7 @@ import {
 } from '@/data/workspace';
 import { toast } from '@/hooks/use-toast';
 import { fetchTasks, taskAction, type ApiUser } from '@/lib/api';
+import { assigneesOf } from '@/lib/assignees';
 
 export interface Notification {
   id: string;
@@ -129,7 +130,7 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
         apply(data);
         toast({
           title: 'Задача создана',
-          description: `Уведомление отправлено на почту: ${task.assignee}`,
+          description: `Уведомление отправлено на почту: ${assigneesOf(task).join(', ') || '—'}`,
         });
       })
       .catch(() => toast({ title: 'Не удалось создать задачу', variant: 'destructive' }));
