@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
 import { RESTAURANTS, roleLabels, type Member, type Role } from '@/data/workspace';
-import { dismissMember, updateMember } from '@/lib/api';
+import { dismissMember, resetMemberPassword, updateMember } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 
 export default function MemberEditDialog({
@@ -40,9 +40,13 @@ export default function MemberEditDialog({
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [confirmOff, setConfirmOff] = useState(false);
+  const [freshPassword, setFreshPassword] = useState('');
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!member) return;
+    setFreshPassword('');
+    setCopied(false);
     setName(member.name);
     setEmail(member.email ?? '');
     setPosition(member.position ?? '');
@@ -82,6 +86,32 @@ export default function MemberEditDialog({
     } finally {
       setBusy(false);
     }
+  }
+
+  async function resetPassword() {
+    if (!member) return;
+    setBusy(true);
+    setError('');
+    try {
+      const res = await resetMemberPassword(member.login);
+      setFreshPassword(res.password);
+      setCopied(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Не удалось сбросить пароль');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function copyAccess() {
+    if (!member) return;
+    navigator.clipboard
+      .writeText(`Логин: ${member.login}\nПароль: ${freshPassword}`)
+      .then(() => {
+        setCopied(true);
+        toast({ title: 'Скопировано', description: 'Отправьте сотруднику любым способом' });
+      })
+      .catch(() => toast({ title: 'Не удалось скопировать', variant: 'destructive' }));
   }
 
   async function dismiss() {
@@ -177,9 +207,50 @@ export default function MemberEditDialog({
           </div>
 
           {member && (
-            <p className="text-[11px] text-muted-foreground">
-              Логин для входа: <b className="text-foreground">{member.login}</b> — он не меняется.
-            </p>
+            <div className="rounded-tile border border-line bg-surface p-3 space-y-2.5">
+              <div className="flex items-center gap-2">
+                <p className="text-[11px] text-muted-foreground mr-auto">
+                  Логин для входа: <b className="text-foreground">{member.login}</b> — не меняется.
+                </p>
+                {canDismiss && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={busy}
+                    onClick={resetPassword}
+                    className="rounded-full h-8 px-3 text-[12px] gap-1.5 border-line flex-none"
+                  >
+                    <Icon name="KeyRound" size={13} />
+                    {freshPassword ? 'Сбросить ещё раз' : 'Сбросить пароль'}
+                  </Button>
+                )}
+              </div>
+
+              {freshPassword && (
+                <div className="rounded-xl bg-card border border-line p-3 space-y-2">
+                  <p className="text-[11px] text-muted-foreground">
+                    Новый пароль — передайте сотруднику. Старый больше не работает, показать его
+                    второй раз не получится.
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 font-mono text-[15px] font-semibold tracking-wider text-foreground">
+                      {freshPassword}
+                    </code>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={copyAccess}
+                      className="rounded-full h-8 px-3 text-[12px] gap-1.5 border-line"
+                    >
+                      <Icon name={copied ? 'Check' : 'Copy'} size={13} />
+                      {copied ? 'Скопировано' : 'Копировать'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           {error && (

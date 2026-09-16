@@ -28,6 +28,13 @@
       "expectedStatus": 401
     },
     {
+      "name": "Сброс пароля без входа запрещён",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "reset_password", "login": "elena.metla"},
+      "expectedStatus": 401
+    },
+    {
       "name": "Успешный вход",
       "method": "POST",
       "path": "/",

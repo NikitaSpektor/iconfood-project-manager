@@ -200,7 +200,7 @@ def handler(event: dict, context) -> dict:
             return {'statusCode': 409, 'headers': CORS, 'body': json.dumps({'error': 'Такой сотрудник уже есть'})}
         return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'ok': True, 'login': login, 'password': password})}
 
-    if action in ('update', 'dismiss', 'restore'):
+    if action in ('update', 'dismiss', 'restore', 'reset_password'):
         me = current_user(cur, event)
         if not me:
             cur.close()
@@ -233,6 +233,18 @@ def handler(event: dict, context) -> dict:
             cur.close()
             conn.close()
             return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'ok': True})}
+
+        if action == 'reset_password':
+            password = secrets.token_hex(4)
+            cur.execute('UPDATE users SET password_hash = ' + q(hash_password(login, password))
+                        + ' WHERE login = ' + q(login))
+            cur.execute('UPDATE sessions SET expires_at = NOW() WHERE user_id IN '
+                        '(SELECT id FROM users WHERE login = ' + q(login) + ')')
+            conn.commit()
+            cur.close()
+            conn.close()
+            return {'statusCode': 200, 'headers': CORS,
+                    'body': json.dumps({'ok': True, 'login': login, 'password': password})}
 
         if action == 'restore':
             cur.execute('UPDATE users SET active = TRUE WHERE login = ' + q(login))
