@@ -835,6 +835,15 @@ def handler(event: dict, context) -> dict:
         column = str(body.get('column'))
         cur.execute('SELECT column_id FROM tasks WHERE id = ' + str(task_id))
         before = cur.fetchone()
+        if column == 'done':
+            cur.execute('SELECT COUNT(*) FROM subtasks WHERE task_id = ' + str(task_id)
+                        + ' AND archived = FALSE AND done = FALSE')
+            left = int(cur.fetchone()[0])
+            if left:
+                cur.close()
+                conn.close()
+                return {'statusCode': 409, 'headers': CORS, 'body': json.dumps({
+                    'error': 'Сначала закройте подзадачи — осталось ' + str(left)})}
         cur.execute('UPDATE tasks SET column_id = ' + q(column) + ' WHERE id = ' + str(task_id))
         if column == 'done' and before and before[0] != 'done':
             announce_done(cur, task_id, user['name'])
@@ -852,6 +861,16 @@ def handler(event: dict, context) -> dict:
                 'INSERT INTO subtasks (task_id, title, done, position) VALUES ('
                 + str(task_id) + ', ' + q(t) + ', FALSE, ' + str(start + i + 1) + ')'
             )
+        conn.commit()
+    elif action == 'rename_subtask':
+        title = str(body.get('title', '')).strip()[:300]
+        if not title:
+            cur.close()
+            conn.close()
+            return {'statusCode': 400, 'headers': CORS,
+                    'body': json.dumps({'error': 'Название шага не может быть пустым'})}
+        cur.execute('UPDATE subtasks SET title = ' + q(title)
+                    + ' WHERE id = ' + str(int(body.get('subtaskId'))))
         conn.commit()
     elif action == 'delete_subtask':
         cur.execute(

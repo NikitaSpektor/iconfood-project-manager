@@ -30,6 +30,7 @@ interface WorkspaceValue {
   toggleSubtask: (taskId: string, subtaskId: string) => void;
   addSubtasks: (taskId: string, titles: string[]) => Promise<void>;
   removeSubtask: (taskId: string, subtaskId: string) => Promise<void>;
+  renameSubtask: (taskId: string, subtaskId: string, title: string) => Promise<void>;
   createTask: (task: Omit<Task, 'id'>) => void;
   updateTask: (taskId: string, patch: Partial<Task>) => Promise<void>;
   addComment: (taskId: string, text: string) => Promise<void>;
@@ -80,11 +81,26 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
   }, []);
 
   const moveTask = useCallback((taskId: string, column: ColumnId) => {
+    const target = tasks.find((t) => t.id === taskId);
+    const left = target ? target.subtasks.filter((s) => !s.done).length : 0;
+    if (column === 'done' && left > 0) {
+      toast({
+        title: 'Задача ещё не готова',
+        description: 'Отметьте все подзадачи выполненными — тогда её можно завершить',
+        variant: 'destructive',
+      });
+      return;
+    }
     setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, column } : t)));
     taskAction({ action: 'move', taskId, column })
       .then(apply)
-      .catch(() => toast({ title: 'Не удалось сохранить', variant: 'destructive' }));
-  }, [apply]);
+      .catch((err) =>
+        toast({
+          title: err instanceof Error ? err.message : 'Не удалось сохранить',
+          variant: 'destructive',
+        }),
+      );
+  }, [apply, tasks]);
 
   const toggleSubtask = useCallback((taskId: string, subtaskId: string) => {
     setTasks((prev) =>
@@ -122,6 +138,23 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
       apply(await taskAction({ action: 'delete_subtask', taskId, subtaskId }));
     } catch {
       toast({ title: 'Не удалось удалить подзадачу', variant: 'destructive' });
+    }
+  }, [apply]);
+
+  const renameSubtask = useCallback(async (taskId: string, subtaskId: string, title: string) => {
+    const clean = title.trim();
+    if (!clean) return;
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === taskId
+          ? { ...t, subtasks: t.subtasks.map((s) => (s.id === subtaskId ? { ...s, title: clean } : s)) }
+          : t,
+      ),
+    );
+    try {
+      apply(await taskAction({ action: 'rename_subtask', taskId, subtaskId, title: clean }));
+    } catch {
+      toast({ title: 'Не удалось переименовать шаг', variant: 'destructive' });
     }
   }, [apply]);
 
@@ -287,6 +320,7 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
       toggleSubtask,
       addSubtasks,
       removeSubtask,
+      renameSubtask,
       createTask,
       updateTask,
       addComment,
@@ -310,6 +344,7 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
       toggleSubtask,
       addSubtasks,
       removeSubtask,
+      renameSubtask,
       createTask,
       updateTask,
       addComment,
