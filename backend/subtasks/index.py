@@ -16,10 +16,16 @@ CORS = {
 GPT_URL = 'https://llm.api.cloud.yandex.net/foundationModels/v1/completion'
 
 SYSTEM_PROMPT = (
-    'Ты — операционный директор сети ресторанов. По названию задачи и ресторану '
-    'составь короткий чек-лист конкретных шагов для сотрудника. '
-    'От 4 до 7 пунктов. Каждый пункт — одно действие, 3-9 слов, с глаголом в начале, '
+    'Ты — операционный директор сети ресторанов ICONFOOD. '
+    'По названию задачи составь чек-лист шагов именно для этой задачи. '
+    'Главное правило: шаги должны относиться к тому, что написано в названии. '
+    'Если задача про документ — шаги про работу с документом, если про видео — про съёмку, '
+    'если про тест — про составление вопросов. Не подставляй шаги из других тем '
+    '(не пиши про закупку, дегустацию или ремонт, если задача не об этом). '
+    'От 4 до 7 пунктов, в логическом порядке: подготовка, выполнение, проверка, закрытие. '
+    'Каждый пункт — одно конкретное действие, 3-9 слов, с глаголом в начале, '
     'на русском языке, без нумерации и лишних символов. '
+    'Не придумывай факты, которых нет в названии задачи. '
     'Ответ верни строго как JSON-массив строк, без пояснений.'
 )
 
@@ -56,8 +62,11 @@ def parse_steps(text: str):
     steps = []
     for line in text.splitlines():
         clean = re.sub(r'^[\s\-\*\d\.\)\"\u2022]+', '', line).strip().strip('",')
-        if len(clean) > 3:
-            steps.append(clean)
+        if len(clean) < 4 or clean.endswith(':'):
+            continue
+        if re.match(r'(?i)^(вот|конечно|список|чек-лист|шаги|ответ|пример)\b', clean):
+            continue
+        steps.append(clean)
     return steps[:8]
 
 
@@ -67,15 +76,18 @@ def ask_gpt(title: str, restaurant: str, priority: str, deadline: str):
     if not api_key or not folder_id:
         return None, 'ИИ-помощник не подключён'
 
-    user_text = 'Задача: ' + title + '\nРесторан: ' + restaurant
+    user_text = 'Задача: ' + title
+    if restaurant:
+        user_text += '\nПодразделение: ' + restaurant
     if priority:
         user_text += '\nПриоритет: ' + priority
     if deadline:
         user_text += '\nСрок: ' + deadline
+    user_text += '\nСоставь шаги строго по смыслу названия задачи.'
 
     payload = {
-        'modelUri': 'gpt://' + folder_id + '/yandexgpt-lite/latest',
-        'completionOptions': {'stream': False, 'temperature': 0.4, 'maxTokens': 500},
+        'modelUri': 'gpt://' + folder_id + '/yandexgpt/latest',
+        'completionOptions': {'stream': False, 'temperature': 0.2, 'maxTokens': 500},
         'messages': [
             {'role': 'system', 'text': SYSTEM_PROMPT},
             {'role': 'user', 'text': user_text},
@@ -91,9 +103,12 @@ def ask_gpt(title: str, restaurant: str, priority: str, deadline: str):
         },
         method='POST',
     )
-    with urllib.request.urlopen(req, timeout=25) as resp:
-        body = json.loads(resp.read().decode('utf-8'))
-    text = body['result']['alternatives'][0]['message']['text']
+    try:
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            body = json.loads(resp.read().decode('utf-8'))
+        text = body['result']['alternatives'][0]['message']['text']
+    except Exception:
+        return None, 'Ассистент сейчас недоступен'
     steps = parse_steps(text)
     if not steps:
         return None, 'Ассистент не смог составить список, попробуйте уточнить название'
