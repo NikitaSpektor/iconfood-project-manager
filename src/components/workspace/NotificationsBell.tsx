@@ -34,7 +34,9 @@ export default function NotificationsBell({ onOpenTask }: { onOpenTask: (taskId:
           ? 'Вам назначили задачу'
           : latest.kind === 'file'
             ? 'Новый файл в вашей задаче'
-            : 'Новый комментарий в вашей задаче',
+            : latest.kind === 'update'
+              ? 'Вашу задачу изменили'
+              : 'Новый комментарий в вашей задаче',
       description: `${latest.actor} · ${latest.taskTitle}`,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -79,7 +81,13 @@ export default function NotificationsBell({ onOpenTask }: { onOpenTask: (taskId:
                 <span className="h-8 w-8 rounded-full bg-avatar flex items-center justify-center flex-none">
                   <Icon
                     name={
-                      n.kind === 'task' ? 'ClipboardCheck' : n.kind === 'file' ? 'Paperclip' : 'MessageSquare'
+                      n.kind === 'task'
+                        ? 'ClipboardCheck'
+                        : n.kind === 'file'
+                          ? 'Paperclip'
+                          : n.kind === 'update'
+                            ? 'PencilLine'
+                            : 'MessageSquare'
                     }
                     size={14}
                   />

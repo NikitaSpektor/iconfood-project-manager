@@ -490,10 +490,16 @@ def notify_one_activity(cur, task_id, title, actor, kind, text, assignee):
         'INSERT INTO notifications (recipient_login, task_id, task_title, kind, actor, text) VALUES ('
         + q(target[0]) + ', ' + str(task_id) + ', ' + q(title) + ', ' + q(kind) + ', ' + q(actor) + ', ' + q(text[:300]) + ')'
     )
-    head = 'Новый файл в задаче' if kind == 'file' else 'Комментарий к задаче'
+    head = ('Новый файл в задаче' if kind == 'file'
+            else 'Задача изменена' if kind == 'update'
+            else 'Комментарий к задаче')
     tg_personal(cur, target[0], head + '\n' + title + '\n' + actor + ': ' + text[:500])
     to_email, who_name = email_of(cur, target[0])
-    if kind == 'file':
+    if kind == 'update':
+        lead = actor + ' изменил вашу задачу.'
+        rows = [('Что изменилось', text[:300]), ('Кто', actor)]
+        extra = ''
+    elif kind == 'file':
         lead = actor + ' прикрепил файл к вашей задаче.'
         rows = [('Файл', text[:200]), ('Кто', actor)]
         extra = ''
@@ -892,6 +898,60 @@ def handler(event: dict, context) -> dict:
             notify_assignee(cur, int(body.get('taskId')), user['name'], 'comment', text)
             announce_comment(cur, int(body.get('taskId')), user['name'], text)
             conn.commit()
+    elif action == 'update':
+        task_id = int(body.get('taskId', 0))
+        cur.execute('SELECT title, restaurant, priority, deadline, assignee, watchers, note, owner_login '
+                    'FROM tasks WHERE id = ' + str(task_id) + ' AND archived = FALSE')
+        before = cur.fetchone()
+        if not before:
+            cur.close()
+            conn.close()
+            return {'statusCode': 404, 'headers': CORS, 'body': json.dumps({'error': 'Задача не найдена'})}
+        if before[7] and before[7] != user['login']:
+            cur.close()
+            conn.close()
+            return {'statusCode': 403, 'headers': CORS,
+                    'body': json.dumps({'error': 'Это личная задача другого сотрудника'})}
+
+        title = str(body.get('title', before[0])).strip()[:200]
+        if not title:
+            cur.close()
+            conn.close()
+            return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'error': 'Укажите название задачи'})}
+        restaurant = str(body.get('restaurant', before[1]))
+        priority = str(body.get('priority', before[2]))
+        deadline = str(body.get('deadline', before[3]))
+        assignees = people_list(body.get('assignees') if 'assignees' in body else before[4])
+        watchers = body.get('watchers') if 'watchers' in body else [w for w in (before[5] or '').split('|') if w]
+        note = str(body.get('note', before[6]) or '')
+        cover = body.get('cover')
+
+        sets = ('title = ' + q(title) + ', restaurant = ' + q(restaurant) + ', priority = ' + q(priority)
+                + ', deadline = ' + q(deadline) + ', assignee = ' + q('|'.join(assignees))
+                + ', watchers = ' + q('|'.join(watchers)) + ', note = ' + q(note))
+        if cover:
+            sets += ', cover = ' + q(str(cover))
+        cur.execute('UPDATE tasks SET ' + sets + ' WHERE id = ' + str(task_id))
+
+        changes = []
+        if title != before[0]:
+            changes.append('название: «' + before[0] + '» → «' + title + '»')
+        if deadline != (before[3] or ''):
+            changes.append('срок: ' + (before[3] or 'не был указан') + ' → ' + (deadline or 'снят'))
+        if priority != before[2]:
+            changes.append('приоритет изменён')
+        if restaurant != before[1]:
+            changes.append('место: ' + (before[1] or '—') + ' → ' + (restaurant or '—'))
+        was_people = people_list(before[4])
+        if assignees != was_people:
+            changes.append('ответственные: ' + (', '.join(assignees) or '—'))
+        if changes:
+            summary = '; '.join(changes)
+            for person in assignees:
+                if person != user['name']:
+                    notify_one_activity(cur, task_id, title, user['name'], 'update', summary, person)
+        conn.commit()
+
     elif action == 'create':
         owner = user['login'] if body.get('personal') else ''
         cur.execute(

@@ -25,6 +25,7 @@ import { suggestSubtasks } from '@/lib/api';
 import { localSubtaskHints } from '@/lib/subtask-hints';
 import TaskComments from './TaskComments';
 import TaskAttachments from './TaskAttachments';
+import TaskEditDialog from './TaskEditDialog';
 import { cn } from '@/lib/utils';
 
 const columnOrder: ColumnId[] = ['new', 'progress', 'done'];
@@ -39,6 +40,7 @@ export default function TaskDialog({
   const { toggleSubtask, addSubtasks, removeSubtask, moveTask, tasks } = useWorkspace();
   const live = task ? tasks.find((t) => t.id === task.id) ?? task : null;
   const [aiLoading, setAiLoading] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   async function askAssistant() {
     if (!live) return;
@@ -99,9 +101,21 @@ export default function TaskDialog({
                 </span>
               )}
             </div>
-            <DialogTitle className="text-xl leading-tight tracking-tight">
-              {live.title}
-            </DialogTitle>
+            <div className="flex items-start gap-2">
+              <DialogTitle className="text-xl leading-tight tracking-tight flex-1">
+                {live.title}
+              </DialogTitle>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setEditing(true)}
+                className="rounded-full h-8 px-3 text-[12px] gap-1.5 flex-none mt-0.5"
+              >
+                <Icon name="Pencil" size={13} />
+                Изменить
+              </Button>
+            </div>
           </DialogHeader>
 
           {live.note && (
@@ -218,6 +232,8 @@ export default function TaskDialog({
           <TaskComments taskId={live.id} comments={live.comments ?? []} />
         </div>
       </DialogContent>
+
+      <TaskEditDialog task={editing ? live : null} onOpenChange={(v) => setEditing(v)} />
     </Dialog>
   );
 }

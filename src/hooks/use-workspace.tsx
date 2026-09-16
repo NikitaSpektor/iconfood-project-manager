@@ -12,7 +12,7 @@ export interface Notification {
   id: string;
   taskId: string;
   taskTitle: string;
-  kind: 'comment' | 'file' | 'task';
+  kind: 'comment' | 'file' | 'task' | 'update';
   actor: string;
   text: string;
   read: boolean;
@@ -31,6 +31,7 @@ interface WorkspaceValue {
   addSubtasks: (taskId: string, titles: string[]) => Promise<void>;
   removeSubtask: (taskId: string, subtaskId: string) => Promise<void>;
   createTask: (task: Omit<Task, 'id'>) => void;
+  updateTask: (taskId: string, patch: Partial<Task>) => Promise<void>;
   addComment: (taskId: string, text: string) => Promise<void>;
   attachFile: (taskId: string, file: File) => Promise<void>;
   removeFile: (taskId: string, fileId: string) => Promise<void>;
@@ -134,6 +135,12 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
         });
       })
       .catch(() => toast({ title: 'Не удалось создать задачу', variant: 'destructive' }));
+  }, [apply]);
+
+  const updateTask = useCallback(async (taskId: string, patch: Partial<Task>) => {
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, ...patch } : t)));
+    apply(await taskAction({ action: 'update', taskId, ...patch }));
+    toast({ title: 'Задача обновлена' });
   }, [apply]);
 
   const addComment = useCallback(async (taskId: string, text: string) => {
@@ -281,6 +288,7 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
       addSubtasks,
       removeSubtask,
       createTask,
+      updateTask,
       addComment,
       attachFile,
       removeFile,
@@ -303,6 +311,7 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
       addSubtasks,
       removeSubtask,
       createTask,
+      updateTask,
       addComment,
       attachFile,
       removeFile,
