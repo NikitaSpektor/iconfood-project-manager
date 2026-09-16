@@ -6,7 +6,7 @@ import smtplib
 import urllib.parse
 import urllib.request
 import uuid
-from datetime import date
+from datetime import date, datetime, timedelta
 from email.header import Header
 from email.mime.text import MIMEText
 
@@ -392,10 +392,8 @@ def announce_overdue(cur):
 
 def daily_digest(cur):
     """Утренняя сводка: что горит сегодня — письмом на почту и в Telegram."""
-    cur.execute("SELECT (NOW() AT TIME ZONE 'Europe/Moscow')::date, "
-                "EXTRACT(HOUR FROM NOW() AT TIME ZONE 'Europe/Moscow')")
-    row = cur.fetchone()
-    today, hour = row[0], int(row[1])
+    moscow_now = datetime.utcnow() + timedelta(hours=3)
+    today, hour = moscow_now.date(), moscow_now.hour
     if hour < 8:
         return
     cur.execute('SELECT 1 FROM digest_log WHERE sent_on = ' + q(today.isoformat()))
@@ -692,10 +690,13 @@ def handler(event: dict, context) -> dict:
         return {'statusCode': 401, 'headers': CORS, 'body': json.dumps({'error': 'Требуется вход'})}
 
     if method == 'GET':
-        announce_overdue(cur)
-        conn.commit()
-        daily_digest(cur)
-        conn.commit()
+        for job in (announce_overdue, daily_digest):
+            try:
+                job(cur)
+                conn.commit()
+            except Exception as exc:
+                conn.rollback()
+                print('background job failed:', job.__name__, exc)
         tasks = load_tasks(cur, user['login'])
         notifications = load_notifications(cur, user['login'])
         channels = load_channels(cur, user)
