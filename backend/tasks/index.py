@@ -126,7 +126,9 @@ def send_email(to_email: str, subject: str, html: str) -> None:
         server.login(user, password)
         server.sendmail(sender, [to_email], msg.as_string())
         server.quit()
-    except Exception:
+        print('mail ok -> ' + to_email + ' | ' + subject[:80], flush=True)
+    except Exception as err:
+        print('mail FAIL -> ' + to_email + ' | ' + type(err).__name__ + ': ' + str(err)[:200], flush=True)
         return
 
 
@@ -155,10 +157,13 @@ def send_email_bulk(letters) -> None:
             msg['To'] = to_email
             try:
                 server.sendmail(sender, [to_email], msg.as_string())
-            except Exception:
+                print('bulk ok -> ' + to_email, flush=True)
+            except Exception as err:
+                print('bulk FAIL -> ' + to_email + ' | ' + type(err).__name__ + ': ' + str(err)[:150], flush=True)
                 continue
         server.quit()
-    except Exception:
+    except Exception as err:
+        print('bulk CONNECT FAIL: ' + type(err).__name__ + ': ' + str(err)[:200], flush=True)
         return
 
 
@@ -247,17 +252,23 @@ def people_list(value) -> list:
 
 
 def notify_new_task(cur, task_id, actor, title, restaurant, deadline, template, assignee, subtasks):
+    letters = []
     for name in people_list(assignee):
-        notify_one_assignee(cur, task_id, actor, title, restaurant, deadline, template, name, subtasks)
+        letter = notify_one_assignee(
+            cur, task_id, actor, title, restaurant, deadline, template, name, subtasks
+        )
+        if letter:
+            letters.append(letter)
+    send_email_bulk(letters)
 
 
 def notify_one_assignee(cur, task_id, actor, title, restaurant, deadline, template, assignee, subtasks):
-    if not assignee or assignee == actor:
-        return
+    if not assignee:
+        return None
     cur.execute('SELECT login, email FROM users WHERE name = ' + q(assignee))
     target = cur.fetchone()
     if not target:
-        return
+        return None
     head = template or 'Новая задача'
     cur.execute(
         'INSERT INTO notifications (recipient_login, task_id, task_title, kind, actor, text) VALUES ('
@@ -287,7 +298,6 @@ def notify_one_assignee(cur, task_id, actor, title, restaurant, deadline, templa
         '<p style="font-size:13px;color:#888">Задача уже на доске ICONFOOD — откройте рабочее пространство, чтобы начать.</p>'
         '</div>'
     )
-    send_email(target[1], 'Новая задача: ' + title, html)
     lines = ['Новая задача на вас', title]
     if people_list(restaurant):
         lines.append('Подразделение: ' + ', '.join(people_list(restaurant)))
@@ -297,6 +307,9 @@ def notify_one_assignee(cur, task_id, actor, title, restaurant, deadline, templa
     if subtasks:
         lines.append('Шагов: ' + str(len(subtasks)))
     tg_personal(cur, target[0], '\n'.join(lines))
+    if assignee == actor or not target[1]:
+        return None
+    return (target[1], 'Новая задача: ' + title, html)
 
 
 def target_channels(cur, restaurant, assignee):
