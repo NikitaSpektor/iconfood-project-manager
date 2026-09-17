@@ -4,6 +4,7 @@ export const AUTH_URL = urls.auth;
 export const TASKS_URL = urls.tasks;
 export const SUBTASKS_AI_URL = (urls as Record<string, string>).subtasks || '';
 export const TELEGRAM_URL = (urls as Record<string, string>).telegram || '';
+export const PLANNER_URL = (urls as Record<string, string>).planner || '';
 
 const TOKEN_KEY = 'iconfood_token';
 
@@ -150,6 +151,42 @@ export async function suggestSubtasks(payload: {
     body: JSON.stringify(payload),
   });
   return (data.steps || []) as string[];
+}
+
+export interface PlannerEntry {
+  id: string;
+  login: string;
+  author: string;
+  day: string;
+  start: number;
+  end: number;
+  title: string;
+  note: string;
+  kind: string;
+  place: string;
+  taskId: string;
+}
+
+export interface PlannerData {
+  entries: PlannerEntry[];
+  people: { login: string; name: string; position: string }[];
+  weekStart: string;
+  day: string;
+  me: { login: string; name: string; role: string };
+  canEdit: boolean;
+}
+
+export async function fetchPlanner(day: string) {
+  if (!PLANNER_URL) throw new Error('Планировщик пока недоступен');
+  return (await request(`${PLANNER_URL}?day=${day}`)) as PlannerData;
+}
+
+export async function plannerAction(payload: Record<string, unknown>) {
+  if (!PLANNER_URL) throw new Error('Планировщик пока недоступен');
+  return (await request(PLANNER_URL, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })) as PlannerData;
 }
 
 export interface TelegramStatus {

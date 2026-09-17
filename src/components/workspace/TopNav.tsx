@@ -18,24 +18,33 @@ export type ViewId =
   | 'board'
   | 'gantt'
   | 'calendar'
+  | 'planner'
   | 'chat'
   | 'reports'
   | 'ai'
   | 'members'
   | 'settings';
 
-export const NAV: { id: ViewId; label: string; icon: string; dot?: boolean }[] = [
+export const NAV: { id: ViewId; label: string; icon: string; dot?: boolean; unit?: boolean }[] = [
   { id: 'overview', label: 'Обзор', icon: 'LayoutGrid' },
   { id: 'personal', label: 'Моя доска', icon: 'UserRound' },
   { id: 'board', label: 'Доска холдинга', icon: 'Columns3' },
   { id: 'gantt', label: 'Гант', icon: 'GanttChart', dot: true },
   { id: 'calendar', label: 'Календарь', icon: 'CalendarDays' },
+  { id: 'planner', label: 'Мой планировщик', icon: 'CalendarClock', unit: true },
   { id: 'chat', label: 'Мессенджер', icon: 'MessageSquare' },
   { id: 'reports', label: 'Отчёты', icon: 'ChartNoAxesColumn' },
   { id: 'ai', label: 'Ассистент', icon: 'Sparkles' },
   { id: 'members', label: 'Участники', icon: 'Users' },
   { id: 'settings', label: 'Настройки', icon: 'Settings' },
 ];
+
+export const PLANNER_UNIT = 'Отдел обучения и развития персонала';
+
+export function visibleNav(role: string, restaurant: string) {
+  const allowPlanner = role === 'owner' || restaurant === PLANNER_UNIT;
+  return NAV.filter((item) => !item.unit || allowPlanner);
+}
 
 interface TopNavProps {
   onOpenTask: (taskId: string) => void;
@@ -44,12 +53,13 @@ interface TopNavProps {
   onLogout: () => void;
   userName: string;
   userRole: string;
+  nav?: typeof NAV;
 }
 
-export default function TopNav({ view, onChange, onLogout, userName, userRole, onOpenTask }: TopNavProps) {
+export default function TopNav({ view, onChange, onLogout, userName, userRole, onOpenTask, nav = NAV }: TopNavProps) {
   const [open, setOpen] = useState(false);
-  const primary = NAV.slice(0, 5);
-  const rest = NAV.slice(5);
+  const primary = nav.slice(0, 5);
+  const rest = nav.slice(5);
 
   return (
     <header className="relative flex-none">
@@ -155,7 +165,7 @@ export default function TopNav({ view, onChange, onLogout, userName, userRole, o
       {open && (
         <div className="lg:hidden absolute left-0 right-0 top-[56px] z-30 bg-card border border-line rounded-bento p-2 shadow-pill animate-scale-in">
           <div className="grid grid-cols-2 gap-1">
-            {NAV.map((item) => (
+            {nav.map((item) => (
               <button
                 key={item.id}
                 onClick={() => {

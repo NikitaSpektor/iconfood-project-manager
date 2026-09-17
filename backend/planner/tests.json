@@ -1,0 +1,17 @@
+{
+  "tests": [
+    {
+      "name": "Без токена доступ закрыт",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 401
+    },
+    {
+      "name": "Запись без токена запрещена",
+      "method": "POST",
+      "path": "/",
+      "body": {"action": "create", "title": "Планёрка", "day": "2026-09-17"},
+      "expectedStatus": 401
+    }
+  ]
+}

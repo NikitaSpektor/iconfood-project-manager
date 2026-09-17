@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import TopNav, { type ViewId } from '@/components/workspace/TopNav';
+import TopNav, { visibleNav, type ViewId } from '@/components/workspace/TopNav';
 import OverviewView from '@/components/workspace/OverviewView';
 import BoardView from '@/components/workspace/BoardView';
 import GanttView from '@/components/workspace/GanttView';
 import CalendarView from '@/components/workspace/CalendarView';
+import PlannerView from '@/components/workspace/PlannerView';
 import ChatView from '@/components/workspace/ChatView';
 import ReportsView from '@/components/workspace/ReportsView';
 import AiView from '@/components/workspace/AiView';
@@ -16,6 +17,7 @@ import { roleLabels, type Role } from '@/data/workspace';
 export default function Workspace({ onLogout }: { onLogout: () => void }) {
   const { user, tasks } = useWorkspace();
   const [view, setView] = useState<ViewId>('overview');
+  const nav = visibleNav(user.role, user.restaurant);
   const [openTaskId, setOpenTaskId] = useState<string | null>(null);
 
   const openTask = openTaskId ? tasks.find((t) => t.id === openTaskId) ?? null : null;
@@ -29,6 +31,7 @@ export default function Workspace({ onLogout }: { onLogout: () => void }) {
         userName={user.name}
         userRole={`${roleLabels[user.role as Role] ?? 'Участник'} · ${user.restaurant}`}
         onOpenTask={setOpenTaskId}
+        nav={nav}
       />
 
       <main className="flex-1 min-h-0 flex flex-col mt-1">
@@ -37,6 +40,7 @@ export default function Workspace({ onLogout }: { onLogout: () => void }) {
         {view === 'board' && <BoardView personal={false} />}
         {view === 'gantt' && <GanttView />}
         {view === 'calendar' && <CalendarView />}
+        {view === 'planner' && nav.some((n) => n.id === 'planner') && <PlannerView />}
         {view === 'chat' && <ChatView />}
         {view === 'reports' && <ReportsView />}
         {view === 'ai' && <AiView />}
