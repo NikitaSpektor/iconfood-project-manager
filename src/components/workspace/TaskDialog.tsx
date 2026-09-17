@@ -92,9 +92,10 @@ export default function TaskDialog({
         restaurant: live.restaurant,
         priority: priorityLabels[live.priority],
         deadline: live.deadline,
+        note: live.note ?? '',
       });
     } catch {
-      list = localSubtaskHints(live.title, live.restaurant);
+      list = localSubtaskHints(live.title, live.restaurant, live.note ?? '');
     }
     const existing = new Set(live.subtasks.map((s) => s.title.trim().toLowerCase()));
     const fresh = list.filter((s) => !existing.has(s.trim().toLowerCase()));

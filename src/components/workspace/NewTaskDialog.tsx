@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -49,6 +50,7 @@ export default function NewTaskDialog({
   const { createTask } = useWorkspace();
   const [people, setPeople] = useState<{ id: string; name: string }[]>([]);
   const [title, setTitle] = useState('');
+  const [note, setNote] = useState('');
   const [assignees, setAssignees] = useState<string[]>([]);
 
   const [restaurant, setRestaurant] = useState(RESTAURANTS[0]);
@@ -65,6 +67,7 @@ export default function NewTaskDialog({
     if (!open) return;
     setTemplate(presetTemplate);
     setAiNote('');
+    setNote('');
     setSteps(TEMPLATES.find((t) => t.id === presetTemplate)?.steps ?? []);
     const owner = TEMPLATES.find((t) => t.id === presetTemplate)?.owner;
     fetchMembers()
@@ -107,11 +110,12 @@ export default function NewTaskDialog({
         restaurant,
         priority: priorityLabels[priority],
         deadline: deadline ? formatDeadline(new Date(deadline)) : '',
+        note: note.trim(),
       });
       setSteps((prev) => [...prev, ...list]);
       setAiNote(`Ассистент предложил ${list.length} шагов — отредактируйте или удалите лишние`);
     } catch {
-      const list = localSubtaskHints(title.trim(), restaurant);
+      const list = localSubtaskHints(title.trim(), restaurant, note.trim());
       setSteps((prev) => [...prev, ...list]);
       setAiNote(`Подобрал ${list.length} шагов по опыту холдинга — отредактируйте под себя`);
     } finally {
@@ -141,6 +145,7 @@ export default function NewTaskDialog({
     const tpl = TEMPLATES.find((t) => t.id === template);
     createTask({
       title: title.trim(),
+      note: note.trim(),
       restaurant,
       column: 'new',
       priority,
@@ -160,6 +165,7 @@ export default function NewTaskDialog({
         .map((step, i) => ({ id: `s${i}`, title: step, done: false })),
     });
     setTitle('');
+    setNote('');
     setDeadline('');
     setSteps([]);
     setAiNote('');
@@ -186,6 +192,18 @@ export default function NewTaskDialog({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Например: обновить винную карту"
               className="rounded-xl"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="nt-note">Описание — по желанию</Label>
+            <Textarea
+              id="nt-note"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Детали, условия, пожелания — ассистент учтёт их в шагах"
+              rows={3}
+              className="rounded-xl resize-none"
             />
           </div>
 

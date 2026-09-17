@@ -18,8 +18,9 @@ GPT_URL = 'https://llm.api.cloud.yandex.net/foundationModels/v1/completion'
 
 SYSTEM_PROMPT = (
     'Ты — операционный директор сети ресторанов ICONFOOD. '
-    'По названию задачи составь чек-лист шагов именно для этой задачи. '
-    'Главное правило: шаги должны относиться к тому, что написано в названии. '
+    'По названию задачи и её описанию составь чек-лист шагов именно для этой задачи. '
+    'Если есть описание — оно важнее названия: учитывай указанные в нём детали и условия. '
+    'Главное правило: шаги должны относиться к тому, что написано в задаче. '
     'Если задача про документ — шаги про работу с документом, если про видео — про съёмку, '
     'если про тест — про составление вопросов. Не подставляй шаги из других тем '
     '(не пиши про закупку, дегустацию или ремонт, если задача не об этом). '
@@ -71,20 +72,28 @@ def parse_steps(text: str):
     return steps[:8]
 
 
-def ask_gpt(title: str, restaurant: str, priority: str, deadline: str):
+def ask_gpt(title: str, restaurant: str, priority: str, deadline: str, note: str = ''):
     api_key = os.environ.get('YANDEX_GPT_API_KEY')
     folder_id = os.environ.get('YANDEX_GPT_FOLDER_ID')
     if not api_key or not folder_id:
         return None, 'ИИ-помощник не подключён'
 
     user_text = 'Задача: ' + title
+    if note:
+        user_text += '\nОписание от постановщика: ' + note[:1500]
     if restaurant:
         user_text += '\nПодразделение: ' + restaurant
     if priority:
         user_text += '\nПриоритет: ' + priority
     if deadline:
         user_text += '\nСрок: ' + deadline
-    user_text += '\nСоставь шаги строго по смыслу названия задачи.'
+    if note:
+        user_text += (
+            '\nСоставь шаги по описанию: учти названные в нём детали, условия и пожелания. '
+            'Если в описании есть готовые пункты — опирайся на них.'
+        )
+    else:
+        user_text += '\nСоставь шаги строго по смыслу названия задачи.'
 
     payload = {
         'modelUri': 'gpt://' + folder_id + '/yandexgpt/latest',
@@ -164,6 +173,7 @@ def handler(event: dict, context) -> dict:
         (data.get('restaurant') or '').strip(),
         (data.get('priority') or '').strip(),
         (data.get('deadline') or '').strip(),
+        (data.get('note') or '').strip(),
     )
     if error:
         return {'statusCode': 503, 'headers': CORS, 'body': json.dumps({'error': error})}

@@ -154,9 +154,14 @@ const INTENTS: Intent[] = [
   },
 ];
 
-export function localSubtaskHints(title: string, restaurant: string): string[] {
+export function localSubtaskHints(title: string, restaurant: string, note = ''): string[] {
   const clean = title.trim().replace(/\s+/g, ' ');
-  const lower = clean.toLowerCase();
+  const noteLines = note
+    .split('\n')
+    .map((l) => l.replace(/^[\s\-–—*•\d.)]+/, '').trim())
+    .filter((l) => l.length > 3);
+  if (noteLines.length >= 3) return noteLines.slice(0, 8);
+  const lower = (clean + ' ' + note).toLowerCase();
   const subject = clean.replace(/^./, (c) => c.toLowerCase());
   const place = restaurant && restaurant !== 'Управляющая компания' ? restaurant : '';
 
@@ -171,7 +176,7 @@ export function localSubtaskHints(title: string, restaurant: string): string[] {
   }
   if (bestIntent) return bestIntent.steps(place);
 
-  const keys = words(clean);
+  const keys = words(clean + ' ' + note);
   let best: (typeof TEMPLATES)[number] | null = null;
   let bestScore = 0;
   for (const tpl of TEMPLATES) {

@@ -142,6 +142,7 @@ export async function suggestSubtasks(payload: {
   restaurant: string;
   priority?: string;
   deadline?: string;
+  note?: string;
 }) {
   if (!SUBTASKS_AI_URL) throw new Error('Помощник пока недоступен');
   const data = await request(SUBTASKS_AI_URL, {
