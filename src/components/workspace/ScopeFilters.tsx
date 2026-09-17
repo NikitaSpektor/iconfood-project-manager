@@ -11,12 +11,13 @@ import {
 import { useWorkspace } from '@/hooks/use-workspace';
 import { RESTAURANTS, type Task } from '@/data/workspace';
 import { assigneesOf } from '@/lib/assignees';
+import { unitsOf } from '@/lib/units';
 
 export function useScopeFilter(tasks: Task[], place: string, owner: string) {
   return useMemo(
     () =>
       tasks
-        .filter((t) => place === 'all' || t.restaurant === place)
+        .filter((t) => place === 'all' || unitsOf(t).includes(place))
         .filter((t) => owner === 'all' || assigneesOf(t).includes(owner)),
     [tasks, place, owner],
   );

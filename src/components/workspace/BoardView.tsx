@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { assigneesOf } from '@/lib/assignees';
+import { unitsOf } from '@/lib/units';
 import { useWorkspace } from '@/hooks/use-workspace';
 import {
   TEMPLATES,
@@ -46,7 +47,7 @@ export default function BoardView({ personal }: { personal: boolean }) {
   const scope = useMemo(
     () =>
       mine
-        .filter((t) => place === 'all' || t.restaurant === place)
+        .filter((t) => place === 'all' || unitsOf(t).includes(place))
         .filter((t) => owner === 'all' || assigneesOf(t).includes(owner))
         .filter((t) => t.title.toLowerCase().includes(query.trim().toLowerCase())),
     [mine, place, owner, query],

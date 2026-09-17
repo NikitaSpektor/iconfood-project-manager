@@ -29,6 +29,7 @@ import {
   type Task,
 } from '@/data/workspace';
 import { assigneesOf } from '@/lib/assignees';
+import { unitsOf } from '@/lib/units';
 import { useWorkspace } from '@/hooks/use-workspace';
 import { fetchMembers } from '@/lib/api';
 import { deadlineLabel, formatDeadline, parseDeadline } from '@/lib/dates';
@@ -56,7 +57,7 @@ export default function TaskEditDialog({
   const [note, setNote] = useState('');
   const [assignees, setAssignees] = useState<string[]>([]);
   const [watchers, setWatchers] = useState<string[]>([]);
-  const [restaurant, setRestaurant] = useState(RESTAURANTS[0]);
+  const [units, setUnits] = useState<string[]>([RESTAURANTS[0]]);
   const [priority, setPriority] = useState<Priority>('normal');
   const [deadline, setDeadline] = useState('');
   const [cover, setCover] = useState<Cover>('none');
@@ -69,7 +70,7 @@ export default function TaskEditDialog({
     setNote(task.note ?? '');
     setAssignees(assigneesOf(task));
     setWatchers(task.watchers ?? []);
-    setRestaurant(task.restaurant || RESTAURANTS[0]);
+    setUnits(unitsOf(task).length ? unitsOf(task) : [RESTAURANTS[0]]);
     setPriority(task.priority);
     setDeadline(toIso(task.deadline));
     setCover(task.cover);
@@ -107,7 +108,7 @@ export default function TaskEditDialog({
         assignees,
         assignee: assignees[0],
         watchers,
-        restaurant,
+        restaurant: units.join('|'),
         priority,
         cover,
         deadline: deadline ? formatDeadline(new Date(deadline)) : '',
@@ -208,19 +209,44 @@ export default function TaskEditDialog({
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>Ресторан</Label>
-              <Select value={restaurant} onValueChange={setRestaurant}>
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl">
-                  {RESTAURANTS.map((r) => (
-                    <SelectItem key={r} value={r}>
-                      {r}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Подразделения</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full rounded-xl justify-between font-normal"
+                  >
+                    <span className="truncate">
+                      {units.length === 0
+                        ? 'Выберите подразделения'
+                        : units.length === 1
+                          ? units[0]
+                          : `${units[0]} и ещё ${units.length - 1}`}
+                    </span>
+                    <Icon name="ChevronsUpDown" size={14} className="opacity-50 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[260px] rounded-2xl p-1.5" align="start">
+                  <div className="max-h-64 overflow-y-auto">
+                    {RESTAURANTS.map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() =>
+                          setUnits((prev) =>
+                            prev.includes(r) ? prev.filter((n) => n !== r) : [...prev, r],
+                          )
+                        }
+                        className="w-full flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm hover:bg-muted text-left"
+                      >
+                        <Checkbox checked={units.includes(r)} className="pointer-events-none" />
+                        <span className="truncate">{r}</span>
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-1.5">
               <Label>Важность</Label>

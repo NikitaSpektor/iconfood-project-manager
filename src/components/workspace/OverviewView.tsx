@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Icon from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
+import { unitsShort } from '@/lib/units';
 import { useWorkspace } from '@/hooks/use-workspace';
 import {
   columnLabels,
@@ -118,7 +119,7 @@ export default function OverviewView({ onGo }: { onGo: (v: ViewId) => void }) {
                           ? `Шаблон «${t.template}» · ${t.subtasks.length} подзадач`
                           : t.column === 'done'
                             ? `Закрыта ${t.deadline}`
-                            : `${t.restaurant} · ${t.deadline}`}
+                            : `${unitsShort(t)} · ${t.deadline}`}
                       </div>
                       {t.watchers.length > 0 && (
                         <div className="flex mt-2">

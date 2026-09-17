@@ -234,7 +234,7 @@ def notify_one_assignee(cur, task_id, actor, title, restaurant, deadline, templa
         '<p style="font-size:14px;color:#333">' + actor + ' назначил вас ответственным по задаче.</p>'
         '<div style="border:1px solid #e5e5e5;border-radius:14px;padding:16px 18px;margin:16px 0">'
         '<p style="margin:0 0 10px;font-size:17px;font-weight:600;color:#111">' + title + '</p>'
-        '<p style="margin:4px 0;font-size:14px;color:#444">Ресторан: <b>' + (restaurant or '—') + '</b></p>'
+        '<p style="margin:4px 0;font-size:14px;color:#444">Подразделение: <b>' + (', '.join(people_list(restaurant)) or '—') + '</b></p>'
         '<p style="margin:4px 0;font-size:14px;color:#444">Дедлайн: <b>' + (deadline or '—') + '</b></p>'
         + ('<p style="margin:4px 0;font-size:14px;color:#444">Шаблон: <b>' + template + '</b></p>' if template else '')
         + steps_block +
@@ -244,8 +244,8 @@ def notify_one_assignee(cur, task_id, actor, title, restaurant, deadline, templa
     )
     send_email(target[1], 'Новая задача: ' + title, html)
     lines = ['Новая задача на вас', title]
-    if restaurant:
-        lines.append('Подразделение: ' + restaurant)
+    if people_list(restaurant):
+        lines.append('Подразделение: ' + ', '.join(people_list(restaurant)))
     if deadline:
         lines.append('Дедлайн: ' + deadline)
     lines.append('Поставил: ' + actor)
@@ -257,8 +257,9 @@ def notify_one_assignee(cur, task_id, actor, title, restaurant, deadline, templa
 def target_channels(cur, restaurant, assignee):
     """Каналы для публикации: подразделение задачи и подразделения ответственных."""
     units = []
-    if restaurant:
-        units.append(restaurant)
+    for unit in people_list(restaurant):
+        if unit not in units:
+            units.append(unit)
     named = people_list(assignee)
     if named:
         quoted = ', '.join(q(n) for n in named)
@@ -426,7 +427,7 @@ def announce_overdue(cur):
                         'Здравствуйте, ' + who_name.split(' ')[0] + '!',
                         'Срок по вашей задаче уже прошёл.',
                         title,
-                        [('Подразделение', restaurant), ('Срок был', deadline),
+                        [('Подразделение', ', '.join(people_list(restaurant))), ('Срок был', deadline),
                          ('Просрочка', str(days) + ' ' + tail)],
                         'Откройте рабочее пространство ICONFOOD и обновите статус задачи.',
                     ),
@@ -486,7 +487,7 @@ def daily_digest(cur):
                 mark, color = 'срок завтра', '#b7791f'
             else:
                 mark, color = 'через ' + str(left) + ' дн.', '#2d6a4f'
-            place = ' · ' + restaurant if restaurant else ''
+            place = ' · ' + ', '.join(people_list(restaurant)) if restaurant else ''
             lines.append('• ' + title + place + ' — ' + mark)
             items += (
                 '<li style="margin:7px 0;color:#333;font-size:14px">' + title
@@ -703,7 +704,8 @@ def load_tasks(cur, login):
         tasks.append({
             'id': str(r[0]),
             'title': r[1],
-            'restaurant': r[2],
+            'restaurant': ', '.join(people_list(r[2])),
+            'units': people_list(r[2]),
             'column': r[3],
             'priority': r[4],
             'cover': r[5],
@@ -1016,7 +1018,7 @@ def handler(event: dict, context) -> dict:
             cur.close()
             conn.close()
             return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({'error': 'Укажите название задачи'})}
-        restaurant = str(body.get('restaurant', before[1]))
+        restaurant = '|'.join(people_list(body.get('restaurant', before[1])))
         priority = str(body.get('priority', before[2]))
         deadline = str(body.get('deadline', before[3]))
         assignees = people_list(body.get('assignees') if 'assignees' in body else before[4])
@@ -1039,7 +1041,8 @@ def handler(event: dict, context) -> dict:
         if priority != before[2]:
             changes.append('приоритет изменён')
         if restaurant != before[1]:
-            changes.append('место: ' + (before[1] or '—') + ' → ' + (restaurant or '—'))
+            changes.append('подразделение: ' + (', '.join(people_list(before[1])) or '—')
+                           + ' → ' + (', '.join(people_list(restaurant)) or '—'))
         was_people = people_list(before[4])
         if assignees != was_people:
             changes.append('ответственные: ' + (', '.join(assignees) or '—'))
@@ -1055,7 +1058,7 @@ def handler(event: dict, context) -> dict:
         cur.execute(
             'INSERT INTO tasks (title, restaurant, column_id, priority, cover, deadline, assignee, watchers, '
             'template, note, track, gantt_start, gantt_span, owner_login) VALUES ('
-            + q(body.get('title')) + ', ' + q(body.get('restaurant', '')) + ', ' + q(body.get('column', 'new')) + ', '
+            + q(body.get('title')) + ', ' + q('|'.join(people_list(body.get('restaurant', '')))) + ', ' + q(body.get('column', 'new')) + ', '
             + q(body.get('priority', 'normal')) + ', ' + q(body.get('cover', 'none')) + ', ' + q(body.get('deadline', '')) + ', '
             + q('|'.join(people_list(body.get('assignees') or body.get('assignee', '')))) + ', '
             + q('|'.join(body.get('watchers') or [])) + ', '

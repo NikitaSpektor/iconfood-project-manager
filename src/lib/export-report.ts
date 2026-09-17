@@ -1,3 +1,4 @@
+import { unitsLabel } from '@/lib/units';
 import * as XLSX from 'xlsx';
 import { columnLabels, priorityLabels, type Task } from '@/data/workspace';
 import { assigneesOf } from '@/lib/assignees';
@@ -51,7 +52,7 @@ export function exportReport({
 
   const rows = tasks.map((t) => ({
     'Задача': t.title,
-    'Подразделение': t.restaurant,
+    'Подразделение': unitsLabel(t),
     'Статус': columnLabels[t.column],
     'Приоритет': priorityLabels[t.priority],
     'Дедлайн': t.deadline,

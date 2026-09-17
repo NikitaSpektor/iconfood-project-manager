@@ -53,7 +53,7 @@ export default function NewTaskDialog({
   const [note, setNote] = useState('');
   const [assignees, setAssignees] = useState<string[]>([]);
 
-  const [restaurant, setRestaurant] = useState(RESTAURANTS[0]);
+  const [units, setUnits] = useState<string[]>([RESTAURANTS[0]]);
   const [priority, setPriority] = useState<Priority>('normal');
   const [deadline, setDeadline] = useState('');
   const [cover, setCover] = useState<Cover>('flame');
@@ -91,6 +91,12 @@ export default function NewTaskDialog({
     if (match) setAssignees([match.name]);
   }
 
+  function toggleUnit(name: string) {
+    setUnits((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
+    );
+  }
+
   function toggleAssignee(name: string) {
     setAssignees((prev) =>
       prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
@@ -107,7 +113,7 @@ export default function NewTaskDialog({
     try {
       const list = await suggestSubtasks({
         title: title.trim(),
-        restaurant,
+        restaurant: units.join(', '),
         priority: priorityLabels[priority],
         deadline: deadline ? formatDeadline(new Date(deadline)) : '',
         note: note.trim(),
@@ -115,7 +121,7 @@ export default function NewTaskDialog({
       setSteps((prev) => [...prev, ...list]);
       setAiNote(`Ассистент предложил ${list.length} шагов — отредактируйте или удалите лишние`);
     } catch {
-      const list = localSubtaskHints(title.trim(), restaurant, note.trim());
+      const list = localSubtaskHints(title.trim(), units[0] ?? '', note.trim());
       setSteps((prev) => [...prev, ...list]);
       setAiNote(`Подобрал ${list.length} шагов по опыту холдинга — отредактируйте под себя`);
     } finally {
@@ -141,12 +147,16 @@ export default function NewTaskDialog({
       setError('Выберите дату дедлайна');
       return;
     }
+    if (units.length === 0) {
+      setError('Выберите хотя бы одно подразделение');
+      return;
+    }
     setError('');
     const tpl = TEMPLATES.find((t) => t.id === template);
     createTask({
       title: title.trim(),
       note: note.trim(),
-      restaurant,
+      restaurant: units.join('|'),
       column: 'new',
       priority,
       cover,
@@ -245,19 +255,40 @@ export default function NewTaskDialog({
               </Popover>
             </div>
             <div className="space-y-1.5">
-              <Label>Ресторан</Label>
-              <Select value={restaurant} onValueChange={setRestaurant}>
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl">
-                  {RESTAURANTS.map((r) => (
-                    <SelectItem key={r} value={r}>
-                      {r}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Подразделения</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full rounded-xl justify-between font-normal"
+                  >
+                    <span className="truncate">
+                      {units.length === 0
+                        ? 'Выберите подразделения'
+                        : units.length === 1
+                          ? units[0]
+                          : `${units[0]} и ещё ${units.length - 1}`}
+                    </span>
+                    <Icon name="ChevronsUpDown" size={14} className="opacity-50 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[260px] rounded-2xl p-1.5" align="start">
+                  <div className="max-h-64 overflow-y-auto">
+                    {RESTAURANTS.map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => toggleUnit(r)}
+                        className="w-full flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm hover:bg-muted text-left"
+                      >
+                        <Checkbox checked={units.includes(r)} className="pointer-events-none" />
+                        <span className="truncate">{r}</span>
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
 

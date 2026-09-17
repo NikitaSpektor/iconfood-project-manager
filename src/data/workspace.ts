@@ -32,6 +32,7 @@ export interface Task {
   id: string;
   title: string;
   restaurant: string;
+  units?: string[];
   column: ColumnId;
   priority: Priority;
   cover: Cover;

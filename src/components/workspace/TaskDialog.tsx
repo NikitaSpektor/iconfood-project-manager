@@ -21,6 +21,7 @@ import {
   type Task,
 } from '@/data/workspace';
 import { deadlineLabel } from '@/lib/dates';
+import { unitsLabel } from '@/lib/units';
 import { useWorkspace } from '@/hooks/use-workspace';
 import { suggestSubtasks } from '@/lib/api';
 import { localSubtaskHints } from '@/lib/subtask-hints';
@@ -135,7 +136,7 @@ export default function TaskDialog({
                 {live.column !== 'done' && ` · ${deadlineLabel(live.deadline)}`}
               </span>
               <span className="rounded-full bg-surface border border-line px-2.5 py-1 text-[11px] text-muted-foreground">
-                {live.restaurant}
+                {unitsLabel(live)}
               </span>
               {live.template && (
                 <span className="rounded-full bg-surface border border-line px-2.5 py-1 text-[11px] text-muted-foreground">

@@ -3,6 +3,7 @@ import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
+import { unitsOf } from '@/lib/units';
 import { useWorkspace } from '@/hooks/use-workspace';
 import {
   RESTAURANTS,
@@ -80,7 +81,7 @@ export default function ReportsView() {
       });
     }
     return RESTAURANTS.map((r) => {
-      const list = rows.filter((t) => t.restaurant === r);
+      const list = rows.filter((t) => unitsOf(t).includes(r));
       return { name: r, done: list.filter((t) => t.column === 'done').length, total: list.length };
     }).filter((r) => r.total > 0);
   }, [slice, rows]);

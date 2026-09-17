@@ -8,6 +8,7 @@ import {
 import { deadlineLabel } from '@/lib/dates';
 import { assigneesOf } from '@/lib/assignees';
 import { cn } from '@/lib/utils';
+import { unitsShort } from '@/lib/units';
 
 interface TaskTileProps {
   task: Task;
@@ -50,7 +51,7 @@ export default function TaskTile({ task, onOpen, selected, shared }: TaskTilePro
       </div>
 
       <div className="mt-1.5 pl-3.5 text-[11px] text-muted-foreground">
-        {task.template ? `Шаблон «${task.template}» · ` : `${task.restaurant} · `}
+        {task.template ? `Шаблон «${task.template}» · ` : `${unitsShort(task)} · `}
         {task.subtasks.length > 0
           ? `${doneCount} из ${task.subtasks.length} подзадач`
           : task.deadline}
