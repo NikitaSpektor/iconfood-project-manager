@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import urllib.error
 import urllib.request
 
 import psycopg2
@@ -107,7 +108,14 @@ def ask_gpt(title: str, restaurant: str, priority: str, deadline: str):
         with urllib.request.urlopen(req, timeout=20) as resp:
             body = json.loads(resp.read().decode('utf-8'))
         text = body['result']['alternatives'][0]['message']['text']
-    except Exception:
+    except urllib.error.HTTPError as err:
+        detail = err.read().decode('utf-8', 'replace')[:300]
+        print('GPT HTTP ' + str(err.code) + ': ' + detail, flush=True)
+        if err.code in (401, 403):
+            return None, 'ИИ-помощник не авторизован — проверьте ключ доступа'
+        return None, 'Ассистент сейчас недоступен'
+    except Exception as err:
+        print('GPT error ' + type(err).__name__ + ': ' + str(err)[:200], flush=True)
         return None, 'Ассистент сейчас недоступен'
     steps = parse_steps(text)
     if not steps:
