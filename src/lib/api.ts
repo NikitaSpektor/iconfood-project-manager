@@ -31,7 +31,12 @@ async function request(url: string, options: RequestInit = {}) {
     },
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || 'Ошибка сервера');
+  if (!res.ok) {
+    if (res.status === 504) {
+      throw new Error('Ответ готовился слишком долго — попробуйте задать вопрос короче');
+    }
+    throw new Error(data.error || 'Ошибка сервера');
+  }
   return data;
 }
 

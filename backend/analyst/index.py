@@ -27,7 +27,7 @@ SYSTEM_PROMPT = (
     'затем разбор с конкретикой — названия задач, фамилии ответственных, даты, числа. '
     'Заверши коротким блоком «Что сделать» из 2-4 конкретных действий. '
     'Пиши по-русски, деловым языком, без воды и без markdown-разметки. '
-    'Объём — 6-14 строк. Обычный текст, списки оформляй тире с новой строки.'
+    'Объём — 6-10 строк. Обычный текст, списки оформляй тире с новой строки.'
 )
 
 MONTHS = {
@@ -133,7 +133,7 @@ def board_snapshot(cur):
             if open_steps:
                 chunk += ' (не сделано: ' + '; '.join(open_steps) + ')'
         if note:
-            chunk += ' | описание: ' + str(note)[:200]
+            chunk += ' | описание: ' + str(note)[:120]
         lines.append(chunk)
 
     total = len(rows)
@@ -153,7 +153,7 @@ def board_snapshot(cur):
         'Подразделения (незакрытые): '
         + (', '.join(n + ' — ' + str(c) for n, c in places) or 'нет данных') + '\n'
     )
-    return header + '\nСписок активных задач:\n' + '\n'.join(lines[:120]), total
+    return header + '\nСписок активных задач:\n' + '\n'.join(lines[:70]), total
 
 
 def ask_gpt(question: str, snapshot: str, user: dict):
@@ -172,7 +172,7 @@ def ask_gpt(question: str, snapshot: str, user: dict):
 
     payload = {
         'modelUri': 'gpt://' + folder_id + '/yandexgpt/latest',
-        'completionOptions': {'stream': False, 'temperature': 0.3, 'maxTokens': 1600},
+        'completionOptions': {'stream': False, 'temperature': 0.3, 'maxTokens': 900},
         'messages': [
             {'role': 'system', 'text': SYSTEM_PROMPT},
             {'role': 'user', 'text': user_text},
