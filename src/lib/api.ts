@@ -5,6 +5,7 @@ export const TASKS_URL = urls.tasks;
 export const SUBTASKS_AI_URL = (urls as Record<string, string>).subtasks || '';
 export const TELEGRAM_URL = (urls as Record<string, string>).telegram || '';
 export const PLANNER_URL = (urls as Record<string, string>).planner || '';
+export const ANALYST_URL = (urls as Record<string, string>).analyst || '';
 
 const TOKEN_KEY = 'iconfood_token';
 
@@ -151,6 +152,15 @@ export async function suggestSubtasks(payload: {
     body: JSON.stringify(payload),
   });
   return (data.steps || []) as string[];
+}
+
+export async function askAnalyst(question: string) {
+  if (!ANALYST_URL) throw new Error('Ассистент пока недоступен');
+  const data = (await request(ANALYST_URL, {
+    method: 'POST',
+    body: JSON.stringify({ question }),
+  })) as { answer: string; tasks: number };
+  return data;
 }
 
 export interface PlannerEntry {

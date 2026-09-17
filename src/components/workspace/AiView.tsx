@@ -3,7 +3,7 @@ import Icon from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { AI_ANSWERS } from '@/data/workspace';
+import { askAnalyst } from '@/lib/api';
 
 interface Line {
   id: number;
@@ -11,38 +11,55 @@ interface Line {
   text: string;
 }
 
-const FALLBACK =
-  'Смотрю на 40 задач холдинга. Главный риск сейчас один — закупки на Никольской: они держат дегустацию, печать меню и, в итоге, дату открытия. Всё остальное идёт в графике.';
+const PROMPTS = [
+  'Что горит на этой неделе?',
+  'Кто перегружен по задачам?',
+  'Какие задачи просрочены и почему?',
+  'Что ставить в приоритет?',
+  'Как идут дела по подразделениям?',
+];
 
 export default function AiView() {
   const [lines, setLines] = useState<Line[]>([
     {
       id: 0,
       role: 'ai',
-      text: 'Я разобрал задачи за неделю. Спросите про сроки, загрузку людей или причины просрочек — отвечу по данным доски.',
+      text: 'Я вижу все активные задачи досок холдинга — архив не учитываю. Спросите про сроки, загрузку людей или причины просрочек, разберу по фактам.',
     },
   ]);
   const [draft, setDraft] = useState('');
   const [thinking, setThinking] = useState(false);
+  const [seen, setSeen] = useState(0);
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [lines, thinking]);
 
-  function ask(question: string) {
+  async function ask(question: string) {
     if (!question.trim() || thinking) return;
     const id = Date.now();
     setLines((p) => [...p, { id, role: 'user', text: question }]);
     setDraft('');
     setThinking(true);
-    const found = AI_ANSWERS.find((a) =>
-      question.toLowerCase().includes(a.q.toLowerCase().slice(0, 12)),
-    );
-    window.setTimeout(() => {
-      setLines((p) => [...p, { id: id + 1, role: 'ai', text: found?.a ?? FALLBACK }]);
+    try {
+      const data = await askAnalyst(question.trim());
+      setLines((p) => [...p, { id: id + 1, role: 'ai', text: data.answer }]);
+      setSeen(data.tasks);
+    } catch (e) {
+      setLines((p) => [
+        ...p,
+        {
+          id: id + 1,
+          role: 'ai',
+          text:
+            (e as Error).message ||
+            'Не смог получить ответ — попробуйте ещё раз через минуту.',
+        },
+      ]);
+    } finally {
       setThinking(false);
-    }, 700);
+    }
   }
 
   return (
@@ -57,7 +74,7 @@ export default function AiView() {
               Ассистент ICONFOOD
             </div>
             <div className="text-[12px] text-muted-foreground">
-              анализ выполнения и завершения задач
+              {seen ? `разбирает ${seen} активных задач` : 'анализ активных задач холдинга'}
             </div>
           </div>
         </div>
@@ -67,7 +84,7 @@ export default function AiView() {
             <div key={l.id} className={cn('flex', l.role === 'user' ? 'justify-end' : 'justify-start')}>
               <div
                 className={cn(
-                  'max-w-[80%] rounded-2xl px-4 py-3 border text-[13px] leading-relaxed',
+                  'max-w-[80%] rounded-2xl px-4 py-3 border text-[13px] leading-relaxed whitespace-pre-wrap',
                   l.role === 'user'
                     ? 'bg-primary text-primary-foreground border-transparent rounded-br-md'
                     : 'bg-card border-line rounded-bl-md',
@@ -118,18 +135,19 @@ export default function AiView() {
           Быстрые разборы
         </div>
         <div className="space-y-2 overflow-y-auto no-scrollbar">
-          {AI_ANSWERS.map((a) => (
+          {PROMPTS.map((p) => (
             <button
-              key={a.q}
-              onClick={() => ask(a.q)}
-              className="w-full text-left bg-card border border-line rounded-tile p-3.5 text-[13px] hover:-translate-y-0.5 hover:shadow-pill transition-all"
+              key={p}
+              onClick={() => ask(p)}
+              disabled={thinking}
+              className="w-full text-left bg-card border border-line rounded-tile p-3.5 text-[13px] hover:-translate-y-0.5 hover:shadow-pill transition-all disabled:opacity-50"
             >
-              {a.q}
+              {p}
             </button>
           ))}
         </div>
         <div className="mt-auto pt-4 text-[12px] text-muted-foreground border-t border-line">
-          Ассистент читает доски, дедлайны и подзадачи. Итог можно отправить в отчёт одним нажатием.
+          Ассистент читает только активные доски: задачи, сроки, ответственных и шаги. Архивные задачи в разбор не попадают.
         </div>
       </section>
     </div>

@@ -94,7 +94,7 @@ export default function PlannerView() {
   }
 
   function openEntry(entry: PlannerEntry) {
-    const mine = entry.login === user.login || user.role === 'owner';
+    const mine = entry.login === user.login;
     if (!mine) {
       toast({
         title: entry.title,

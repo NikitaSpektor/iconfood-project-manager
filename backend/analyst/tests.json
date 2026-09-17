@@ -1,0 +1,24 @@
+{
+  "tests": [
+    {
+      "name": "Без вопроса ошибка",
+      "method": "POST",
+      "path": "/",
+      "body": {"question": ""},
+      "expectedStatus": 400
+    },
+    {
+      "name": "Без токена доступ закрыт",
+      "method": "POST",
+      "path": "/",
+      "body": {"question": "Что горит на этой неделе?"},
+      "expectedStatus": 401
+    },
+    {
+      "name": "GET не поддерживается",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 405
+    }
+  ]
+}

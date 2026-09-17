@@ -94,7 +94,7 @@ def payload(cur, user, day_str: str):
         'weekStart': start.isoformat(),
         'day': anchor.isoformat(),
         'me': {'login': user['login'], 'name': user['name'], 'role': user['role']},
-        'canEdit': user['restaurant'] == UNIT or user['role'] == 'owner',
+        'canEdit': user['restaurant'] == UNIT,
     }
 
 
@@ -184,11 +184,11 @@ def handler(event: dict, context) -> dict:
                         'headers': CORS,
                         'body': json.dumps({'error': 'Запись не найдена'}),
                     }
-                if row[0] != user['login'] and user['role'] != 'owner':
+                if row[0] != user['login']:
                     return {
                         'statusCode': 403,
                         'headers': CORS,
-                        'body': json.dumps({'error': 'Можно менять только свои записи'}),
+                        'body': json.dumps({'error': 'Редактировать можно только свой день'}),
                     }
                 day_str = day_str or row[1].isoformat()
                 sets = []
@@ -224,11 +224,11 @@ def handler(event: dict, context) -> dict:
                         'headers': CORS,
                         'body': json.dumps({'error': 'Запись не найдена'}),
                     }
-                if row[0] != user['login'] and user['role'] != 'owner':
+                if row[0] != user['login']:
                     return {
                         'statusCode': 403,
                         'headers': CORS,
-                        'body': json.dumps({'error': 'Можно удалять только свои записи'}),
+                        'body': json.dumps({'error': 'Удалять можно только свои записи'}),
                     }
                 day_str = day_str or row[1].isoformat()
                 cur.execute(
