@@ -159,6 +159,13 @@ export async function suggestSubtasks(payload: {
   return (data.steps || []) as string[];
 }
 
+export async function testMail() {
+  return (await request(TASKS_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'mail_test' }),
+  })) as { ok: boolean; note: string };
+}
+
 export async function askAnalyst(question: string) {
   if (!ANALYST_URL) throw new Error('Ассистент пока недоступен');
   const data = (await request(ANALYST_URL, {

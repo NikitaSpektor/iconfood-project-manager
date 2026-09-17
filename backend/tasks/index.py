@@ -162,6 +162,51 @@ def send_email_bulk(letters) -> None:
         return
 
 
+def smtp_check(to_email: str, actor_name: str):
+    """Проверяет доступ к почтовому серверу и шлёт тестовое письмо."""
+    host = os.environ.get('SMTP_HOST', '')
+    user = os.environ.get('SMTP_USER', '')
+    password = os.environ.get('SMTP_PASSWORD', '')
+    missing = [n for n, v in (('SMTP_HOST', host), ('SMTP_USER', user),
+                              ('SMTP_PASSWORD', password)) if not v]
+    if missing:
+        return False, 'Не заполнено: ' + ', '.join(missing)
+    if not to_email:
+        return False, 'В вашем профиле не указана рабочая почта'
+    sender = os.environ.get('SMTP_FROM', user)
+    port = int(os.environ.get('SMTP_PORT', '465'))
+    html = mail_layout(
+        'Здравствуйте, ' + actor_name.split(' ')[0] + '!',
+        'Это проверочное письмо из рабочего пространства ICONFOOD.',
+        'Почтовая рассылка настроена',
+        [('Отправитель', sender), ('Сервер', host + ':' + str(port))],
+        'Если письмо дошло — сотрудники будут получать задачи и утренние сводки.',
+    )
+    msg = MIMEText(html, 'html', 'utf-8')
+    msg['Subject'] = Header('ICONFOOD: проверка почтовой рассылки', 'utf-8')
+    msg['From'] = sender
+    msg['To'] = to_email
+    try:
+        if port == 465:
+            server = smtplib.SMTP_SSL(host, port, timeout=12)
+        else:
+            server = smtplib.SMTP(host, port, timeout=12)
+            server.starttls()
+        server.login(user, password)
+        server.sendmail(sender, [to_email], msg.as_string())
+        server.quit()
+        return True, 'Письмо отправлено на ' + to_email
+    except smtplib.SMTPAuthenticationError:
+        return False, 'Сервер не принял логин или пароль. Нужен пароль приложения, а не обычный пароль от почты'
+    except smtplib.SMTPRecipientsRefused:
+        return False, 'Сервер отклонил адрес получателя: ' + to_email
+    except smtplib.SMTPSenderRefused:
+        return False, 'Сервер запретил отправку с адреса ' + sender + ' — он должен совпадать с ящиком входа'
+    except Exception as err:
+        print('smtp_check ' + type(err).__name__ + ': ' + str(err)[:200], flush=True)
+        return False, 'Не удалось связаться с сервером ' + host + ':' + str(port)
+
+
 def mail_layout(greeting: str, lead: str, title: str, rows, footer: str, extra: str = '') -> str:
     """Собирает письмо в фирменном оформлении холдинга."""
     cells = ''.join(
@@ -761,6 +806,18 @@ def handler(event: dict, context) -> dict:
 
     body = json.loads(event.get('body') or '{}')
     action = body.get('action', '')
+
+    if action == 'mail_test':
+        cur.execute('SELECT email FROM users WHERE login = ' + q(user['login']))
+        row = cur.fetchone()
+        ok, note = smtp_check(row[0] if row else '', user['name'])
+        cur.close()
+        conn.close()
+        return {
+            'statusCode': 200,
+            'headers': CORS,
+            'body': json.dumps({'ok': ok, 'note': note}, ensure_ascii=False),
+        }
 
     if action == 'open_direct':
         other = str(body.get('login', '')).strip().lower()

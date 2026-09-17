@@ -14,6 +14,7 @@ import { toast } from '@/hooks/use-toast';
 import { RESTAURANTS, roleLabels, type Role } from '@/data/workspace';
 import { useWorkspace } from '@/hooks/use-workspace';
 import TelegramCard from '@/components/workspace/TelegramCard';
+import { testMail } from '@/lib/api';
 
 const notifications = [
   { id: 'n1', label: 'Новая задача на мне', hint: 'Письмо ответственному сразу после создания', on: true },
@@ -48,6 +49,9 @@ export default function SettingsView() {
   );
   const [email, setEmail] = useState(user.email);
   const [place, setPlace] = useState(user.restaurant || RESTAURANTS[0]);
+  const [mailBusy, setMailBusy] = useState(false);
+  const [mailNote, setMailNote] = useState('');
+  const [mailOk, setMailOk] = useState(false);
 
   return (
     <div className="grid gap-3.5 lg:grid-cols-2 flex-1 min-h-0 overflow-y-auto no-scrollbar">
@@ -123,6 +127,44 @@ export default function SettingsView() {
             </li>
           ))}
         </ul>
+
+        <div className="mt-5 pt-4 border-t border-line space-y-2.5">
+          <Button
+            variant="outline"
+            disabled={mailBusy}
+            className="rounded-full h-10 gap-1.5"
+            onClick={async () => {
+              setMailBusy(true);
+              setMailNote('');
+              try {
+                const r = await testMail();
+                setMailOk(r.ok);
+                setMailNote(r.note);
+              } catch (e) {
+                setMailOk(false);
+                setMailNote((e as Error).message || 'Не удалось выполнить проверку');
+              } finally {
+                setMailBusy(false);
+              }
+            }}
+          >
+            <Icon name={mailBusy ? 'Loader' : 'Send'} size={15} className={mailBusy ? 'animate-spin' : ''} />
+            {mailBusy ? 'Отправляю…' : 'Отправить проверочное письмо'}
+          </Button>
+          {mailNote && (
+            <p
+              className={`text-[12px] leading-relaxed ${mailOk ? 'text-muted-foreground' : 'text-destructive'}`}
+            >
+              {mailNote}
+            </p>
+          )}
+          {!mailNote && (
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              Проверка отправит письмо на вашу рабочую почту и покажет, что именно мешает, если
+              рассылка не настроена.
+            </p>
+          )}
+        </div>
       </section>
 
       <TelegramCard />
