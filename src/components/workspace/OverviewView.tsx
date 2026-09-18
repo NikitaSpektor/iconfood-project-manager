@@ -13,16 +13,9 @@ import {
 } from '@/data/workspace';
 import { MONTHS_NOM, formatClock, formatFullDate } from '@/lib/dates';
 import { weeklySummary } from '@/lib/weekly-summary';
+import { overviewGantt, todayMark } from '@/lib/overview-gantt';
 import TaskDialog from './TaskDialog';
 import type { ViewId } from './TopNav';
-
-const ganttRows = [
-  { name: 'Меню', left: 2, width: 46, color: 'bg-flag-hot' },
-  { name: 'Персонал', left: 16, width: 52, color: 'bg-flag-soon' },
-  { name: 'Оборудование', left: 0, width: 40, color: 'bg-flag-done' },
-  { name: 'Маркетинг', left: 38, width: 44, color: 'bg-flag-select' },
-  { name: 'Открытие', left: 74, width: 22, color: 'bg-bar' },
-];
 
 export default function OverviewView({ onGo }: { onGo: (v: ViewId) => void }) {
   const { tasks, user } = useWorkspace();
@@ -39,6 +32,8 @@ export default function OverviewView({ onGo }: { onGo: (v: ViewId) => void }) {
   const personal = tasks.filter((t) => t.personal).slice(0, 5);
   const columns: ColumnId[] = ['new', 'progress', 'done'];
   const summary = useMemo(() => weeklySummary(tasks), [tasks]);
+  const ganttRows = useMemo(() => overviewGantt(tasks), [tasks]);
+  const markLeft = todayMark();
 
   return (
     <>
@@ -149,20 +144,34 @@ export default function OverviewView({ onGo }: { onGo: (v: ViewId) => void }) {
               <i className="h-2.5 w-2.5 rounded-[3px] bg-bar" />
               Гант · {MONTHS_NOM[now.getMonth()]}
             </div>
-            <div className="flex flex-col gap-2.5">
-              {ganttRows.map((r) => (
-                <div key={r.name} className="grid grid-cols-[76px_1fr] items-center gap-2.5">
-                  <span className="text-[12px] text-muted-foreground truncate">{r.name}</span>
-                  <div className="h-3 rounded-md bg-card relative shadow-[inset_0_0_0_1px_hsl(var(--line))]">
-                    <i
-                      className={cn('absolute inset-y-0 rounded-md block', r.color)}
-                      style={{ left: `${r.left}%`, width: `${r.width}%` }}
-                    />
-                    <div className="absolute -inset-y-1 w-[1.5px] bg-primary" style={{ left: '41%' }} />
+            {ganttRows.length ? (
+              <div className="flex flex-col gap-2.5">
+                {ganttRows.map((r) => (
+                  <div key={r.name} className="grid grid-cols-[76px_1fr] items-center gap-2.5">
+                    <span className="text-[12px] text-muted-foreground truncate" title={r.name}>
+                      {r.name}
+                    </span>
+                    <div
+                      className="h-3 rounded-md bg-card relative shadow-[inset_0_0_0_1px_hsl(var(--line))]"
+                      title={`${r.name}: ${r.hint}`}
+                    >
+                      <i
+                        className={cn('absolute inset-y-0 rounded-md block', r.color)}
+                        style={{ left: `${r.left}%`, width: `${r.width}%` }}
+                      />
+                      <div
+                        className="absolute -inset-y-1 w-[1.5px] bg-primary"
+                        style={{ left: `${markLeft}%` }}
+                      />
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[13px] text-muted-foreground">
+                В этом месяце задач со сроками нет.
+              </p>
+            )}
             <button
               onClick={() => onGo('gantt')}
               className="mt-4 text-[12px] text-muted-foreground hover:text-primary transition-colors inline-flex items-center gap-1"
