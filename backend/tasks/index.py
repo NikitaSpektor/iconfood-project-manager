@@ -54,7 +54,7 @@ def can_manage(cur, user, task_id=None) -> bool:
         return False
     owner_login, restaurant, assignee = row
     if owner_login:
-        return owner_login == user['login']
+        return owner_login == user['login'] or user.get('role') == 'owner'
     if user.get('role') == 'manager':
         unit = user.get('restaurant') or ''
         if not unit:
@@ -746,11 +746,11 @@ def unit_colleagues(cur, unit: str) -> set:
 def visible_task(task, user, colleagues=None) -> bool:
     """Владелец видит всё, управляющий — своё подразделение и задачи подчинённых, остальные — свои."""
     owner_login = task['ownerLogin']
+    people = task['assignees'] + task['watchers']
     if owner_login:
-        return owner_login == user['login']
+        return owner_login == user['login'] or user['name'] in people
     if user.get('role') == 'owner':
         return True
-    people = task['assignees'] + task['watchers']
     if user['name'] in people:
         return True
     if user.get('role') == 'manager' and user.get('restaurant'):
@@ -764,7 +764,7 @@ def visible_task(task, user, colleagues=None) -> bool:
 def editable_task(task, user, colleagues=None) -> bool:
     """Может ли пользователь править эту задачу — та же логика, что и на сервере."""
     if task['ownerLogin']:
-        return task['ownerLogin'] == user['login']
+        return task['ownerLogin'] == user['login'] or user.get('role') == 'owner'
     if user.get('role') == 'owner':
         return True
     if user.get('role') == 'manager' and user.get('restaurant'):
@@ -823,8 +823,14 @@ def load_tasks(cur, login):
             'text': text,
             'createdAt': created.isoformat(),
         })
+    cur.execute('SELECT login, name FROM users')
+    name_by_login = dict((lg, nm) for lg, nm in cur.fetchall())
     tasks = []
     for r in rows:
+        author_name = name_by_login.get(r[14] or '', '')
+        crew = set(people_list(r[7])) | set(w for w in (r[8] or '').split('|') if w)
+        crew.discard(author_name)
+        shared_with_others = bool(crew)
         tasks.append({
             'id': str(r[0]),
             'title': r[1],
@@ -842,7 +848,7 @@ def load_tasks(cur, login):
             'track': r[11],
             'ganttStart': r[12],
             'ganttSpan': r[13],
-            'personal': bool(r[14]) and r[14] == login,
+            'personal': bool(r[14]) and r[14] == login and not shared_with_others,
             'ownerLogin': r[14] or '',
             'subtasks': subs.get(r[0], []),
             'comments': comments.get(r[0], []),
