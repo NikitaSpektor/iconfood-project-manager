@@ -747,10 +747,10 @@ def visible_task(task, user, colleagues=None) -> bool:
     """Владелец видит всё, управляющий — своё подразделение и задачи подчинённых, остальные — свои."""
     owner_login = task['ownerLogin']
     people = task['assignees'] + task['watchers']
-    if owner_login:
-        return owner_login == user['login'] or user['name'] in people
     if user.get('role') == 'owner':
         return True
+    if owner_login:
+        return owner_login == user['login'] or user['name'] in people
     if user['name'] in people:
         return True
     if user.get('role') == 'manager' and user.get('restaurant'):
