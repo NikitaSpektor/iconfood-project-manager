@@ -34,27 +34,36 @@ def current_user(cur, event):
     if not token:
         return None
     cur.execute(
-        'SELECT u.login, u.name, u.role FROM sessions s JOIN users u ON u.id = s.user_id '
+        'SELECT u.login, u.name, u.role, u.restaurant FROM sessions s JOIN users u ON u.id = s.user_id '
         'WHERE s.token = ' + q(token) + ' AND s.expires_at > NOW()'
     )
     row = cur.fetchone()
-    return {'login': row[0], 'name': row[1], 'role': row[2]} if row else None
+    return ({'login': row[0], 'name': row[1], 'role': row[2], 'restaurant': row[3] or ''}
+            if row else None)
 
 
 def can_manage(cur, user, task_id=None) -> bool:
-    """Править и удалять задачи могут владельцы, управляющие и хозяин личной задачи."""
-    if user.get('role') in ('owner', 'manager'):
+    """Владелец правит всё, управляющий — задачи своего подразделения, автор — свою личную."""
+    if user.get('role') == 'owner':
         return True
-    if task_id:
-        cur.execute('SELECT owner_login FROM tasks WHERE id = ' + str(int(task_id)))
-        row = cur.fetchone()
-        if row and row[0] and row[0] == user['login']:
-            return True
+    if not task_id:
+        return user.get('role') == 'manager'
+    cur.execute('SELECT owner_login, restaurant, assignee FROM tasks WHERE id = ' + str(int(task_id)))
+    row = cur.fetchone()
+    if not row:
+        return False
+    owner_login, restaurant, assignee = row
+    if owner_login:
+        return owner_login == user['login']
+    if user.get('role') == 'manager':
+        unit = user.get('restaurant') or ''
+        return bool(unit) and unit in people_list(restaurant)
     return False
 
 
 DENIED = {'statusCode': 403, 'headers': CORS,
-          'body': json.dumps({'error': 'Изменять задачи могут владелец и управляющий'})}
+          'body': json.dumps({'error': 'Недостаточно прав для изменения этой задачи'},
+                             ensure_ascii=False)}
 
 
 def tg_send(chat_id: str, text: str) -> None:
@@ -721,6 +730,22 @@ def load_channels(cur, user):
     return channels
 
 
+def visible_task(task, user) -> bool:
+    """Кто какие задачи видит: владелец — все, управляющий — своё подразделение, остальные — свои."""
+    owner_login = task['ownerLogin']
+    if owner_login:
+        return owner_login == user['login']
+    if user.get('role') == 'owner':
+        return True
+    people = task['assignees'] + task['watchers']
+    if user['name'] in people:
+        return True
+    if user.get('role') == 'manager' and user.get('restaurant'):
+        if user['restaurant'] in task['units']:
+            return True
+    return False
+
+
 def load_tasks(cur, login):
     cur.execute(
         'SELECT id, title, restaurant, column_id, priority, cover, deadline, assignee, watchers, '
@@ -777,6 +802,7 @@ def load_tasks(cur, login):
             'ganttStart': r[12],
             'ganttSpan': r[13],
             'personal': bool(r[14]) and r[14] == login,
+            'ownerLogin': r[14] or '',
             'subtasks': subs.get(r[0], []),
             'comments': comments.get(r[0], []),
             'attachments': files.get(r[0], []),
@@ -806,7 +832,7 @@ def handler(event: dict, context) -> dict:
             except Exception as exc:
                 conn.rollback()
                 print('background job failed:', job.__name__, exc)
-        tasks = load_tasks(cur, user['login'])
+        tasks = [t for t in load_tasks(cur, user['login']) if visible_task(t, user)]
         notifications = load_notifications(cur, user['login'])
         channels = load_channels(cur, user)
         cur.close()
@@ -995,6 +1021,20 @@ def handler(event: dict, context) -> dict:
         cur.execute('UPDATE subtasks SET title = ' + q(title)
                     + ' WHERE id = ' + str(int(body.get('subtaskId'))))
         conn.commit()
+    elif action == 'reorder_subtasks':
+        task_id = int(body.get('taskId', 0))
+        if not can_manage(cur, user, task_id):
+            cur.close()
+            conn.close()
+            return DENIED
+        order = [int(x) for x in (body.get('order') or [])]
+        cur.execute('SELECT id FROM subtasks WHERE task_id = ' + str(task_id) + ' AND archived = FALSE')
+        allowed = set(r[0] for r in cur.fetchall())
+        for position, sid in enumerate(order):
+            if sid in allowed:
+                cur.execute('UPDATE subtasks SET position = ' + str(position)
+                            + ' WHERE id = ' + str(sid))
+        conn.commit()
     elif action == 'delete_subtask':
         if not can_manage(cur, user, body.get('taskId')):
             cur.close()
@@ -1154,7 +1194,7 @@ def handler(event: dict, context) -> dict:
             )
         conn.commit()
 
-    tasks = load_tasks(cur, user['login'])
+    tasks = [t for t in load_tasks(cur, user['login']) if visible_task(t, user)]
     notifications = load_notifications(cur, user['login'])
     channels = load_channels(cur, user)
     cur.close()

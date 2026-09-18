@@ -4,6 +4,7 @@ import {
   type ColumnId,
   type Task,
 } from '@/data/workspace';
+import { unitsOf } from '@/lib/units';
 import { toast } from '@/hooks/use-toast';
 import { fetchTasks, taskAction, type ApiUser } from '@/lib/api';
 import { assigneesOf } from '@/lib/assignees';
@@ -31,6 +32,7 @@ interface WorkspaceValue {
   addSubtasks: (taskId: string, titles: string[]) => Promise<void>;
   removeSubtask: (taskId: string, subtaskId: string) => Promise<void>;
   renameSubtask: (taskId: string, subtaskId: string, title: string) => Promise<void>;
+  reorderSubtasks: (taskId: string, from: number, to: number) => Promise<void>;
   createTask: (task: Omit<Task, 'id'>) => void;
   updateTask: (taskId: string, patch: Partial<Task>) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
@@ -160,6 +162,27 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
     }
   }, [apply]);
 
+  const reorderSubtasks = useCallback(async (taskId: string, from: number, to: number) => {
+    let order: string[] = [];
+    setTasks((prev) =>
+      prev.map((t) => {
+        if (t.id !== taskId) return t;
+        const list = [...t.subtasks];
+        if (from < 0 || to < 0 || from >= list.length || to >= list.length) return t;
+        const [moved] = list.splice(from, 1);
+        list.splice(to, 0, moved);
+        order = list.map((s) => s.id);
+        return { ...t, subtasks: list };
+      }),
+    );
+    if (!order.length) return;
+    try {
+      apply(await taskAction({ action: 'reorder_subtasks', taskId, order }));
+    } catch {
+      toast({ title: 'Не удалось изменить порядок шагов', variant: 'destructive' });
+    }
+  }, [apply]);
+
   const createTask = useCallback((task: Omit<Task, 'id'>) => {
     taskAction({ action: 'create', ...task })
       .then((data) => {
@@ -179,9 +202,15 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
   }, [apply]);
 
   const canEdit = useCallback(
-    (task: Task) =>
-      user.role === 'owner' || user.role === 'manager' || (task.personal ?? false),
-    [user.role],
+    (task: Task) => {
+      if (user.role === 'owner') return true;
+      if (task.personal) return true;
+      if (user.role === 'manager' && user.restaurant) {
+        return unitsOf(task).includes(user.restaurant);
+      }
+      return false;
+    },
+    [user.role, user.restaurant],
   );
 
   const deleteTask = useCallback(async (taskId: string) => {
@@ -341,6 +370,7 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
       addSubtasks,
       removeSubtask,
       renameSubtask,
+      reorderSubtasks,
       createTask,
       updateTask,
       deleteTask,
@@ -367,6 +397,7 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
       addSubtasks,
       removeSubtask,
       renameSubtask,
+      reorderSubtasks,
       createTask,
       updateTask,
       deleteTask,

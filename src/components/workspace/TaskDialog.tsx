@@ -44,6 +44,7 @@ export default function TaskDialog({
     addSubtasks,
     removeSubtask,
     renameSubtask,
+    reorderSubtasks,
     moveTask,
     deleteTask,
     canEdit,
@@ -55,6 +56,8 @@ export default function TaskDialog({
   const [aiLoading, setAiLoading] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editStep, setEditStep] = useState<string | null>(null);
+  const [dragStep, setDragStep] = useState<number | null>(null);
+  const [overStep, setOverStep] = useState<number | null>(null);
   const [stepText, setStepText] = useState('');
   const [adding, setAdding] = useState(false);
   const [newStep, setNewStep] = useState('');
@@ -241,8 +244,40 @@ export default function TaskDialog({
             </div>
             {live.subtasks.length > 0 ? (
               <ul className="space-y-2.5 max-h-52 overflow-y-auto thin-scrollbar pr-1">
-                {live.subtasks.map((s) => (
-                  <li key={s.id} className="flex items-start gap-3 group">
+                {live.subtasks.map((s, index) => (
+                  <li
+                    key={s.id}
+                    draggable={mayEdit && editStep !== s.id}
+                    onDragStart={() => setDragStep(index)}
+                    onDragEnd={() => setDragStep(null)}
+                    onDragOver={(e) => {
+                      if (dragStep === null || dragStep === index) return;
+                      e.preventDefault();
+                      setOverStep(index);
+                    }}
+                    onDragLeave={() => setOverStep((v) => (v === index ? null : v))}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      if (dragStep !== null && dragStep !== index) {
+                        reorderSubtasks(live.id, dragStep, index);
+                      }
+                      setDragStep(null);
+                      setOverStep(null);
+                    }}
+                    className={cn(
+                      'flex items-start gap-2 group rounded-lg transition-colors',
+                      dragStep === index && 'opacity-40',
+                      overStep === index && dragStep !== null && 'bg-muted',
+                    )}
+                  >
+                    {mayEdit && (
+                      <span
+                        className="mt-0.5 cursor-grab active:cursor-grabbing text-muted-foreground/50 group-hover:text-muted-foreground shrink-0"
+                        aria-label="Перетащить шаг"
+                      >
+                        <Icon name="GripVertical" size={14} />
+                      </span>
+                    )}
                     <Checkbox
                       id={`${live.id}-${s.id}`}
                       checked={s.done}
