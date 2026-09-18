@@ -203,6 +203,7 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
 
   const canEdit = useCallback(
     (task: Task) => {
+      if (typeof task.mayEdit === 'boolean') return task.mayEdit;
       if (user.role === 'owner') return true;
       if (task.personal) return true;
       if (user.role === 'manager' && user.restaurant) {

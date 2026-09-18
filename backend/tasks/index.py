@@ -57,7 +57,12 @@ def can_manage(cur, user, task_id=None) -> bool:
         return owner_login == user['login']
     if user.get('role') == 'manager':
         unit = user.get('restaurant') or ''
-        return bool(unit) and unit in people_list(restaurant)
+        if not unit:
+            return False
+        if unit in people_list(restaurant):
+            return True
+        mates = unit_colleagues(cur, unit)
+        return bool(mates.intersection(people_list(assignee)))
     return False
 
 
@@ -730,8 +735,16 @@ def load_channels(cur, user):
     return channels
 
 
-def visible_task(task, user) -> bool:
-    """Кто какие задачи видит: владелец — все, управляющий — своё подразделение, остальные — свои."""
+def unit_colleagues(cur, unit: str) -> set:
+    """Имена сотрудников подразделения — чтобы управляющий видел задачи подчинённых."""
+    if not unit:
+        return set()
+    cur.execute('SELECT name FROM users WHERE active = TRUE AND restaurant = ' + q(unit))
+    return set(r[0] for r in cur.fetchall())
+
+
+def visible_task(task, user, colleagues=None) -> bool:
+    """Владелец видит всё, управляющий — своё подразделение и задачи подчинённых, остальные — свои."""
     owner_login = task['ownerLogin']
     if owner_login:
         return owner_login == user['login']
@@ -743,7 +756,35 @@ def visible_task(task, user) -> bool:
     if user.get('role') == 'manager' and user.get('restaurant'):
         if user['restaurant'] in task['units']:
             return True
+        if colleagues and colleagues.intersection(people):
+            return True
     return False
+
+
+def editable_task(task, user, colleagues=None) -> bool:
+    """Может ли пользователь править эту задачу — та же логика, что и на сервере."""
+    if task['ownerLogin']:
+        return task['ownerLogin'] == user['login']
+    if user.get('role') == 'owner':
+        return True
+    if user.get('role') == 'manager' and user.get('restaurant'):
+        if user['restaurant'] in task['units']:
+            return True
+        if colleagues and colleagues.intersection(task['assignees']):
+            return True
+    return False
+
+
+def visible_for(cur, user):
+    """Возвращает задачи, доступные пользователю, с пометкой прав на правку."""
+    mates = unit_colleagues(cur, user.get('restaurant', '')) if user.get('role') == 'manager' else set()
+    out = []
+    for task in load_tasks(cur, user['login']):
+        if not visible_task(task, user, mates):
+            continue
+        task['mayEdit'] = editable_task(task, user, mates)
+        out.append(task)
+    return out
 
 
 def load_tasks(cur, login):
@@ -832,7 +873,7 @@ def handler(event: dict, context) -> dict:
             except Exception as exc:
                 conn.rollback()
                 print('background job failed:', job.__name__, exc)
-        tasks = [t for t in load_tasks(cur, user['login']) if visible_task(t, user)]
+        tasks = visible_for(cur, user)
         notifications = load_notifications(cur, user['login'])
         channels = load_channels(cur, user)
         cur.close()
@@ -1194,7 +1235,7 @@ def handler(event: dict, context) -> dict:
             )
         conn.commit()
 
-    tasks = [t for t in load_tasks(cur, user['login']) if visible_task(t, user)]
+    tasks = visible_for(cur, user)
     notifications = load_notifications(cur, user['login'])
     channels = load_channels(cur, user)
     cur.close()
