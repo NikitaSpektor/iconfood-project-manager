@@ -5,7 +5,15 @@ import { useWorkspace } from '@/hooks/use-workspace';
 import { deadlineTone, toneClasses, type Task } from '@/data/workspace';
 import TaskDialog from './TaskDialog';
 import ScopeFilters, { useDefaultPlace, useScopeFilter } from './ScopeFilters';
-import { MONTHS_NOM, daysInMonth, monthLead, parseDeadline, today } from '@/lib/dates';
+import { MONTHS_GEN, MONTHS_NOM, daysInMonth, monthLead, parseDeadline, today } from '@/lib/dates';
+import { unitsShort } from '@/lib/units';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 const weekdays = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
@@ -14,6 +22,7 @@ export default function CalendarView() {
   const [open, setOpen] = useState<Task | null>(null);
   const [place, setPlace] = useState('all');
   const [owner, setOwner] = useState('all');
+  const [dayOpen, setDayOpen] = useState<number | null>(null);
   useDefaultPlace(setPlace);
 
   const rows = useScopeFilter(tasks, place, owner);
@@ -35,6 +44,8 @@ export default function CalendarView() {
     });
     return map;
   }, [rows, month, year]);
+
+  const dayTasks = dayOpen === null ? [] : byDay.get(dayOpen) ?? [];
 
   return (
     <div className="flex flex-col gap-3.5 flex-1 min-h-0">
@@ -77,9 +88,12 @@ export default function CalendarView() {
             return (
               <div
                 key={day}
+                onDoubleClick={() => list.length && setDayOpen(day)}
+                title={list.length ? `Двойной клик — все задачи (${list.length})` : undefined}
                 className={cn(
-                  'rounded-tile border p-1 sm:p-2 min-h-[58px] sm:min-h-[76px] flex flex-col gap-0.5 sm:gap-1 transition-colors',
+                  'rounded-tile border p-1 sm:p-2 min-h-[58px] sm:min-h-[76px] flex flex-col gap-0.5 sm:gap-1 transition-colors select-none',
                   isToday ? 'border-primary bg-primary/[0.04]' : 'border-line bg-card',
+                  list.length && 'cursor-pointer hover:border-primary/40',
                 )}
               >
                 <span
@@ -108,9 +122,12 @@ export default function CalendarView() {
                   );
                 })}
                 {list.length > 2 && (
-                  <span className="text-[10px] text-muted-foreground px-1">
+                  <button
+                    onClick={() => setDayOpen(day)}
+                    className="text-[10px] text-muted-foreground px-1 text-left hover:text-primary transition-colors"
+                  >
                     +{list.length - 2}
-                  </span>
+                  </button>
                 )}
               </div>
             );
@@ -128,10 +145,49 @@ export default function CalendarView() {
             <i className="h-2.5 w-2.5 rounded-[3px] bg-flag-done" />запас есть или закрыта
           </span>
           <span className="flex items-center gap-1.5 ml-auto">
-            <Icon name="MousePointerClick" size={13} />нажмите на стикер
+            <Icon name="MousePointerClick" size={13} />клик — задача, двойной клик по дню — все задачи
           </span>
         </div>
       </section>
+
+      <Dialog open={dayOpen !== null} onOpenChange={(v) => !v && setDayOpen(null)}>
+        <DialogContent className="max-w-md rounded-bento border-line max-h-[80vh] overflow-y-auto thin-scrollbar">
+          <DialogHeader className="text-left">
+            <DialogTitle className="tracking-tight">
+              {dayOpen} {MONTHS_GEN[month]} {year}
+            </DialogTitle>
+            <DialogDescription>
+              {dayTasks.length} задач с этим сроком
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            {dayTasks.map((t) => {
+              const tone = toneClasses[deadlineTone(t.deadline, t.column)];
+              return (
+                <button
+                  key={t.id}
+                  onClick={() => {
+                    setDayOpen(null);
+                    setOpen(t);
+                  }}
+                  className="w-full text-left bg-card border border-line rounded-tile p-3 hover:border-primary/40 transition-colors"
+                >
+                  <div className="flex items-start gap-2">
+                    <i className={cn('h-2.5 w-2.5 rounded-[3px] mt-1 flex-none', tone.dot)} />
+                    <div className="min-w-0">
+                      <div className="text-[13px] font-medium leading-snug">{t.title}</div>
+                      <div className="text-[11px] text-muted-foreground mt-1 truncate">
+                        {unitsShort(t)}
+                        {t.assignees?.length ? ` · ${t.assignees.join(', ')}` : ''}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <TaskDialog task={open} onClose={() => setOpen(null)} />
     </div>
