@@ -42,6 +42,7 @@ export interface Task {
   watchers: string[];
   template?: string;
   personal: boolean;
+  ownerLogin?: string;
   mayEdit?: boolean;
   subtasks: Subtask[];
   comments?: Comment[];

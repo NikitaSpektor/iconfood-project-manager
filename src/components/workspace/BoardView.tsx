@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import Icon from '@/components/ui/icon';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -32,12 +32,18 @@ export default function BoardView({ personal }: { personal: boolean }) {
 
   useDefaultPlace(setPlace, personal);
 
+  const isMine = useCallback(
+    (t: Task) =>
+      t.personal ||
+      t.ownerLogin === user.login ||
+      assigneesOf(t).includes(user.name) ||
+      (t.watchers ?? []).includes(user.name),
+    [user.login, user.name],
+  );
+
   const mine = useMemo(
-    () =>
-      personal
-        ? tasks.filter((t) => t.personal || assigneesOf(t).includes(user.name))
-        : tasks.filter((t) => !t.personal),
-    [tasks, personal, user.name],
+    () => (personal ? tasks.filter(isMine) : tasks.filter((t) => !t.personal)),
+    [tasks, personal, isMine],
   );
 
   const fromHolding = useMemo(
