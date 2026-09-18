@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Icon from '@/components/ui/icon';
 import { cn } from '@/lib/utils';
 import { unitsShort } from '@/lib/units';
@@ -12,6 +12,7 @@ import {
   type Task,
 } from '@/data/workspace';
 import { MONTHS_NOM, formatClock, formatFullDate } from '@/lib/dates';
+import { weeklySummary } from '@/lib/weekly-summary';
 import TaskDialog from './TaskDialog';
 import type { ViewId } from './TopNav';
 
@@ -37,6 +38,7 @@ export default function OverviewView({ onGo }: { onGo: (v: ViewId) => void }) {
   const firstName = user.name.split(' ')[0];
   const personal = tasks.filter((t) => t.personal).slice(0, 5);
   const columns: ColumnId[] = ['new', 'progress', 'done'];
+  const summary = useMemo(() => weeklySummary(tasks), [tasks]);
 
   return (
     <>
@@ -182,9 +184,15 @@ export default function OverviewView({ onGo }: { onGo: (v: ViewId) => void }) {
               </div>
             </div>
             <p className="mt-3.5 text-[15px] leading-[1.45]">
-              Открытие Никольской идёт с опозданием на{' '}
-              <b className="text-primary font-semibold">4 дня</b>: держат закупки. Задачи по
-              персоналу закрываются вовремя.
+              {summary.map((part, i) =>
+                part.accent ? (
+                  <b key={i} className="text-primary font-semibold">
+                    {part.text}
+                  </b>
+                ) : (
+                  <span key={i}>{part.text}</span>
+                ),
+              )}
             </p>
             <button
               onClick={() => onGo('ai')}

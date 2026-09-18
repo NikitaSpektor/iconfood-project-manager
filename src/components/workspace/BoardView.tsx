@@ -24,6 +24,7 @@ export default function BoardView({ personal }: { personal: boolean }) {
   const [open, setOpen] = useState<Task | null>(null);
   const [creating, setCreating] = useState(false);
   const [preset, setPreset] = useState('none');
+  const mayUseTemplates = user.role === 'owner' || user.role === 'manager';
   const [query, setQuery] = useState('');
   const [place, setPlace] = useState('all');
   const [owner, setOwner] = useState('all');
@@ -159,6 +160,7 @@ export default function BoardView({ personal }: { personal: boolean }) {
         })}
       </div>
 
+      {mayUseTemplates && (
       <section className="bento p-4 sm:p-5 flex-none animate-fade-in [animation-delay:.25s]">
         <div className="eyebrow mb-3">
           <i className="h-2.5 w-2.5 rounded-[3px] bg-bar" />
@@ -186,6 +188,7 @@ export default function BoardView({ personal }: { personal: boolean }) {
           ))}
         </div>
       </section>
+      )}
 
       <TaskDialog task={open} onClose={() => setOpen(null)} />
       <NewTaskDialog open={creating} onOpenChange={setCreating} personal={personal} presetTemplate={preset} />
