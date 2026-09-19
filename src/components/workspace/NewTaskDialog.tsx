@@ -52,6 +52,7 @@ export default function NewTaskDialog({
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
   const [assignees, setAssignees] = useState<string[]>([]);
+  const [watchers, setWatchers] = useState<string[]>([]);
 
   const [units, setUnits] = useState<string[]>([RESTAURANTS[0]]);
   const [priority, setPriority] = useState<Priority>('normal');
@@ -99,6 +100,12 @@ export default function NewTaskDialog({
 
   function toggleAssignee(name: string) {
     setAssignees((prev) =>
+      prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
+    );
+  }
+
+  function toggleWatcher(name: string) {
+    setWatchers((prev) =>
       prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
     );
   }
@@ -163,7 +170,7 @@ export default function NewTaskDialog({
       deadline: formatDeadline(new Date(deadline)),
       assignee: assignees[0] ?? '',
       assignees,
-      watchers: [],
+      watchers,
       template: tpl?.name,
       personal,
       track: 'Новое',
@@ -177,6 +184,7 @@ export default function NewTaskDialog({
     setTitle('');
     setNote('');
     setDeadline('');
+    setWatchers([]);
     setSteps([]);
     setAiNote('');
     onOpenChange(false);
@@ -254,6 +262,45 @@ export default function NewTaskDialog({
                 </PopoverContent>
               </Popover>
             </div>
+            <div className="space-y-1.5">
+              <Label>Наблюдатели</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full rounded-xl justify-between font-normal"
+                  >
+                    <span className="truncate">
+                      {watchers.length === 0
+                        ? 'Никто не следит'
+                        : watchers.length <= 2
+                          ? watchers.join(', ')
+                          : `${watchers[0]} и ещё ${watchers.length - 1}`}
+                    </span>
+                    <Icon name="ChevronsUpDown" size={14} className="opacity-50 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[260px] rounded-2xl p-1.5" align="start">
+                  <div className="max-h-64 overflow-y-auto">
+                    {people.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => toggleWatcher(m.name)}
+                        className="w-full flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm hover:bg-muted text-left"
+                      >
+                        <Checkbox checked={watchers.includes(m.name)} className="pointer-events-none" />
+                        <span className="truncate">{m.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>Подразделения</Label>
               <Popover>
