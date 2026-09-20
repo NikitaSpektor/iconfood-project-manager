@@ -37,8 +37,8 @@ interface WorkspaceValue {
   updateTask: (taskId: string, patch: Partial<Task>) => Promise<void>;
   deleteTask: (taskId: string) => Promise<void>;
   canEdit: (task: Task) => boolean;
-  addComment: (taskId: string, text: string) => Promise<void>;
-  attachFile: (taskId: string, file: File) => Promise<void>;
+  addComment: (taskId: string, text: string, subtaskId?: string) => Promise<void>;
+  attachFile: (taskId: string, file: File, subtaskId?: string) => Promise<void>;
   removeFile: (taskId: string, fileId: string) => Promise<void>;
   sendMessage: (channelId: string, text: string, file?: File) => Promise<void>;
   readChannel: (channelId: string) => void;
@@ -226,15 +226,15 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
     }
   }, [apply]);
 
-  const addComment = useCallback(async (taskId: string, text: string) => {
+  const addComment = useCallback(async (taskId: string, text: string, subtaskId?: string) => {
     try {
-      apply(await taskAction({ action: 'comment', taskId, text }));
+      apply(await taskAction({ action: 'comment', taskId, text, subtaskId: subtaskId ?? '' }));
     } catch {
       toast({ title: 'Не удалось отправить комментарий', variant: 'destructive' });
     }
   }, [apply]);
 
-  const attachFile = useCallback(async (taskId: string, file: File) => {
+  const attachFile = useCallback(async (taskId: string, file: File, subtaskId?: string) => {
     if (file.size > 8 * 1024 * 1024) {
       toast({ title: 'Файл больше 8 МБ', description: 'Загрузите файл поменьше', variant: 'destructive' });
       return;
@@ -252,6 +252,7 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
         name: file.name,
         mime: file.type || 'application/octet-stream',
         data,
+        subtaskId: subtaskId ?? '',
       });
       apply(updated);
       toast({ title: 'Файл прикреплён', description: file.name });

@@ -16,10 +16,12 @@ export interface Comment {
   author: string;
   text: string;
   createdAt: string;
+  subtaskId?: string;
 }
 
 export interface Attachment {
   id: string;
+  subtaskId?: string;
   name: string;
   url: string;
   mime: string;

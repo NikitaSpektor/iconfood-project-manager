@@ -799,13 +799,14 @@ def load_tasks(cur, login):
         subs.setdefault(task_id, []).append({'id': str(sid), 'title': title, 'done': done})
 
     cur.execute(
-        'SELECT task_id, id, name, url, mime, size_bytes, author, created_at FROM attachments '
+        'SELECT task_id, id, name, url, mime, size_bytes, author, created_at, subtask_id FROM attachments '
         'WHERE archived = FALSE ORDER BY id'
     )
     files = {}
-    for task_id, fid, name, url, mime, size, author, created in cur.fetchall():
+    for task_id, fid, name, url, mime, size, author, created, sub_id in cur.fetchall():
         files.setdefault(task_id, []).append({
             'id': str(fid),
+            'subtaskId': str(sub_id) if sub_id else '',
             'name': name,
             'url': url,
             'mime': mime,
@@ -814,14 +815,15 @@ def load_tasks(cur, login):
             'createdAt': created.isoformat(),
         })
 
-    cur.execute('SELECT task_id, id, author, text, created_at FROM comments ORDER BY id')
+    cur.execute('SELECT task_id, id, author, text, created_at, subtask_id FROM comments ORDER BY id')
     comments = {}
-    for task_id, cid, author, text, created in cur.fetchall():
+    for task_id, cid, author, text, created, sub_id in cur.fetchall():
         comments.setdefault(task_id, []).append({
             'id': str(cid),
             'author': author,
             'text': text,
             'createdAt': created.isoformat(),
+            'subtaskId': str(sub_id) if sub_id else '',
         })
     cur.execute('SELECT login, name FROM users')
     name_by_login = dict((lg, nm) for lg, nm in cur.fetchall())
@@ -1111,12 +1113,21 @@ def handler(event: dict, context) -> dict:
         )
         s3.put_object(Bucket='files', Key=key, Body=content, ContentType=mime)
         url = f"https://cdn.poehali.dev/projects/{os.environ['AWS_ACCESS_KEY_ID']}/bucket/{key}"
+        raw_sub = str(body.get('subtaskId', '') or '').strip()
+        sub_sql = str(int(raw_sub)) if raw_sub.isdigit() else 'NULL'
         cur.execute(
-            'INSERT INTO attachments (task_id, name, url, mime, size_bytes, author) VALUES ('
+            'INSERT INTO attachments (task_id, name, url, mime, size_bytes, author, subtask_id) VALUES ('
             + str(int(body.get('taskId'))) + ', ' + q(name) + ', ' + q(url) + ', ' + q(mime) + ', '
-            + str(len(content)) + ', ' + q(user['name']) + ')'
+            + str(len(content)) + ', ' + q(user['name']) + ', ' + sub_sql + ')'
         )
-        notify_assignee(cur, int(body.get('taskId')), user['name'], 'file', name)
+        step_title = ''
+        if sub_sql != 'NULL':
+            cur.execute('SELECT title FROM subtasks WHERE id = ' + sub_sql)
+            found = cur.fetchone()
+            if found:
+                step_title = found[0]
+        shown = (name + ' — к шагу «' + step_title + '»') if step_title else name
+        notify_assignee(cur, int(body.get('taskId')), user['name'], 'file', shown)
         conn.commit()
     elif action == 'detach':
         cur.execute('UPDATE attachments SET archived = TRUE WHERE id = ' + str(int(body.get('fileId'))))
@@ -1124,12 +1135,22 @@ def handler(event: dict, context) -> dict:
     elif action == 'comment':
         text = str(body.get('text', '')).strip()
         if text:
+            raw_sub = str(body.get('subtaskId', '') or '').strip()
+            sub_sql = str(int(raw_sub)) if raw_sub.isdigit() else 'NULL'
             cur.execute(
-                'INSERT INTO comments (task_id, author, author_login, text) VALUES ('
-                + str(int(body.get('taskId'))) + ', ' + q(user['name']) + ', ' + q(user['login']) + ', ' + q(text) + ')'
+                'INSERT INTO comments (task_id, author, author_login, text, subtask_id) VALUES ('
+                + str(int(body.get('taskId'))) + ', ' + q(user['name']) + ', ' + q(user['login'])
+                + ', ' + q(text) + ', ' + sub_sql + ')'
             )
-            notify_assignee(cur, int(body.get('taskId')), user['name'], 'comment', text)
-            announce_comment(cur, int(body.get('taskId')), user['name'], text)
+            step_title = ''
+            if sub_sql != 'NULL':
+                cur.execute('SELECT title FROM subtasks WHERE id = ' + sub_sql)
+                found = cur.fetchone()
+                if found:
+                    step_title = found[0]
+            shown = ('Шаг «' + step_title + '»: ' + text) if step_title else text
+            notify_assignee(cur, int(body.get('taskId')), user['name'], 'comment', shown)
+            announce_comment(cur, int(body.get('taskId')), user['name'], shown)
             conn.commit()
     elif action == 'delete_task':
         task_id = int(body.get('taskId', 0))

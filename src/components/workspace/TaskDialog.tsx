@@ -27,6 +27,7 @@ import { suggestSubtasks } from '@/lib/api';
 import { localSubtaskHints } from '@/lib/subtask-hints';
 import TaskComments from './TaskComments';
 import TaskAttachments from './TaskAttachments';
+import SubtaskThread from './SubtaskThread';
 import TaskReport from './TaskReport';
 import TaskEditDialog from './TaskEditDialog';
 import { cn } from '@/lib/utils';
@@ -299,15 +300,23 @@ export default function TaskDialog({
                       />
                     ) : (
                       <>
-                        <label
-                          htmlFor={`${live.id}-${s.id}`}
-                          className={cn(
-                            'text-sm leading-snug cursor-pointer flex-1',
-                            s.done && 'line-through text-muted-foreground',
-                          )}
-                        >
-                          {s.title}
-                        </label>
+                        <div className="flex-1 min-w-0">
+                          <label
+                            htmlFor={`${live.id}-${s.id}`}
+                            className={cn(
+                              'text-sm leading-snug cursor-pointer block',
+                              s.done && 'line-through text-muted-foreground',
+                            )}
+                          >
+                            {s.title}
+                          </label>
+                          <SubtaskThread
+                            taskId={live.id}
+                            subtaskId={s.id}
+                            comments={live.comments ?? []}
+                            files={live.attachments ?? []}
+                          />
+                        </div>
                         {mayEdit && (
                           <>
                             <button
