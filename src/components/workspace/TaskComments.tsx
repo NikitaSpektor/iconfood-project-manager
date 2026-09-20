@@ -24,13 +24,14 @@ export default function TaskComments({
   comments: Comment[];
 }) {
   const { addComment, user } = useWorkspace();
+  const general = comments.filter((c) => !c.subtaskId);
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight });
-  }, [comments.length]);
+  }, [general.length]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -46,12 +47,12 @@ export default function TaskComments({
     <div className="mt-5">
       <div className="eyebrow mb-3">
         <i className="h-2.5 w-2.5 rounded-[3px] bg-bar" />
-        Обсуждение · {comments.length}
+        Обсуждение · {general.length}
       </div>
 
-      {comments.length > 0 ? (
+      {general.length > 0 ? (
         <div ref={listRef} className="space-y-3 max-h-48 overflow-y-auto thin-scrollbar pr-0.5">
-          {comments.map((c) => {
+          {general.map((c) => {
             const own = c.author === user.name;
             return (
               <div key={c.id} className="flex gap-2.5">

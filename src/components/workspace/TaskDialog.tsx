@@ -27,6 +27,7 @@ import { suggestSubtasks } from '@/lib/api';
 import { localSubtaskHints } from '@/lib/subtask-hints';
 import TaskComments from './TaskComments';
 import TaskAttachments from './TaskAttachments';
+import TaskReport from './TaskReport';
 import TaskEditDialog from './TaskEditDialog';
 import { cn } from '@/lib/utils';
 
@@ -423,6 +424,8 @@ export default function TaskDialog({
           <TaskAttachments taskId={live.id} files={live.attachments ?? []} />
 
           <TaskComments taskId={live.id} comments={live.comments ?? []} />
+
+          <TaskReport taskId={live.id} />
         </div>
       </DialogContent>
 

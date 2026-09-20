@@ -42,14 +42,15 @@ export default function TaskAttachments({
     if (inputRef.current) inputRef.current.value = '';
   }
 
-  const images = files.filter((f) => f.mime.startsWith('image/'));
-  const docs = files.filter((f) => !f.mime.startsWith('image/'));
+  const general = files.filter((f) => !f.subtaskId);
+  const images = general.filter((f) => f.mime.startsWith('image/'));
+  const docs = general.filter((f) => !f.mime.startsWith('image/'));
 
   return (
     <div className="mt-5">
       <div className="eyebrow mb-3">
         <i className="h-2.5 w-2.5 rounded-[3px] bg-bar" />
-        Вложения · {files.length}
+        Вложения · {general.length}
       </div>
 
       {images.length > 0 && (

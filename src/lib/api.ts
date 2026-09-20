@@ -166,11 +166,11 @@ export async function testMail() {
   })) as { ok: boolean; note: string };
 }
 
-export async function askAnalyst(question: string) {
+export async function askAnalyst(question: string, taskId?: string) {
   if (!ANALYST_URL) throw new Error('Ассистент пока недоступен');
   const data = (await request(ANALYST_URL, {
     method: 'POST',
-    body: JSON.stringify({ question }),
+    body: JSON.stringify(taskId ? { question, taskId } : { question }),
   })) as { answer: string; tasks: number };
   return data;
 }
