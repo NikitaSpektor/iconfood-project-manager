@@ -14,6 +14,7 @@ import {
 import { MONTHS_NOM, formatClock, formatFullDate } from '@/lib/dates';
 import { weeklySummary } from '@/lib/weekly-summary';
 import { overviewGantt, todayMark } from '@/lib/overview-gantt';
+import { quoteOfTheDay } from '@/lib/daily-quote';
 import TaskDialog from './TaskDialog';
 import type { ViewId } from './TopNav';
 
@@ -33,6 +34,7 @@ export default function OverviewView({ onGo }: { onGo: (v: ViewId) => void }) {
   const columns: ColumnId[] = ['new', 'progress', 'done'];
   const summary = useMemo(() => weeklySummary(tasks), [tasks]);
   const ganttRows = useMemo(() => overviewGantt(tasks), [tasks]);
+  const quote = useMemo(() => quoteOfTheDay(now), [now]);
   const markLeft = todayMark();
 
   return (
@@ -77,7 +79,18 @@ export default function OverviewView({ onGo }: { onGo: (v: ViewId) => void }) {
             })}
           </ul>
 
-          <p className="mt-auto pt-4 text-[12px] text-muted-foreground">
+          <figure className="mt-auto pt-5">
+            <div className="h-px bg-line mb-4" />
+            <blockquote className="text-[14px] leading-[1.45] italic text-foreground/85">
+              «{quote.text}»
+            </blockquote>
+            <figcaption className="mt-1.5 text-[12px] text-muted-foreground flex items-center gap-1.5">
+              <Icon name="Quote" size={12} />
+              {quote.author} · мысль дня
+            </figcaption>
+          </figure>
+
+          <p className="pt-4 text-[12px] text-muted-foreground">
             <sup className="text-primary">*</sup> Личная доска. Общая доска холдинга — справа.
           </p>
         </section>
@@ -86,7 +99,7 @@ export default function OverviewView({ onGo }: { onGo: (v: ViewId) => void }) {
         <section className="bento p-6 sm:p-7 overflow-hidden flex flex-col animate-fade-in [animation-delay:.13s]">
           <div className="eyebrow mb-4">
             <i className="h-2.5 w-2.5 rounded-[3px] bg-bar" />
-            Общая доска — 4 ресторана
+            Общая доска холдинга
           </div>
 
           <div className="grid grid-cols-3 gap-2.5 min-h-0 overflow-hidden">
