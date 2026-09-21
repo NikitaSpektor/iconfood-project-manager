@@ -16,6 +16,12 @@ import TaskTile from './TaskTile';
 import TaskDialog from './TaskDialog';
 import NewTaskDialog from './NewTaskDialog';
 import ScopeFilters, { useDefaultPlace } from './ScopeFilters';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const columns: ColumnId[] = ['new', 'progress', 'done'];
 
@@ -103,6 +109,34 @@ export default function BoardView({ personal }: { personal: boolean }) {
           onOwner={setOwner}
         />
 
+        {mayUseTemplates && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="rounded-full h-9 gap-1.5 text-[13px] flex-none">
+                <Icon name="Plus" size={15} />
+                Шаблон
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64 rounded-tile">
+              {TEMPLATES.map((tpl) => (
+                <DropdownMenuItem
+                  key={tpl.id}
+                  onSelect={() => { setPreset(tpl.id); setCreating(true); }}
+                  className="rounded-lg gap-2.5 py-2 cursor-pointer"
+                >
+                  <Icon name={tpl.icon} size={16} className="text-muted-foreground flex-none" />
+                  <span className="min-w-0">
+                    <span className="block text-[13px] font-medium truncate">{tpl.name}</span>
+                    <span className="block text-[11px] text-muted-foreground truncate">
+                      {tpl.steps.length} подзадач · {tpl.hint}
+                    </span>
+                  </span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+
         <Button onClick={() => { setPreset('none'); setCreating(true); }} className="rounded-full h-9 gap-1.5 text-[13px] flex-none">
           <Icon name="Plus" size={15} />
           Задача
@@ -165,36 +199,6 @@ export default function BoardView({ personal }: { personal: boolean }) {
           );
         })}
       </div>
-
-      {mayUseTemplates && (
-      <section className="bento p-4 sm:p-5 flex-none animate-fade-in [animation-delay:.25s]">
-        <div className="eyebrow mb-3">
-          <i className="h-2.5 w-2.5 rounded-[3px] bg-bar" />
-          Шаблоны задач
-        </div>
-        <div className="flex gap-2.5 overflow-x-auto thin-scrollbar pb-2">
-          {TEMPLATES.map((tpl) => (
-            <button
-              key={tpl.id}
-              onClick={() => { setPreset(tpl.id); setCreating(true); }}
-              className="flex-none w-56 text-left bg-card border border-line rounded-tile p-3.5 hover:-translate-y-0.5 hover:shadow-pill transition-all"
-            >
-              <Icon name={tpl.icon} size={17} className="mb-2 text-muted-foreground" />
-              <div className="text-[13px] font-medium">{tpl.name}</div>
-              <div className="text-[11px] text-muted-foreground mt-1">
-                {tpl.steps.length} подзадач · {tpl.hint}
-              </div>
-              {tpl.owner && (
-                <div className="text-[11px] text-muted-foreground mt-1.5 flex items-center gap-1">
-                  <Icon name="UserRound" size={11} />
-                  {tpl.owner}
-                </div>
-              )}
-            </button>
-          ))}
-        </div>
-      </section>
-      )}
 
       <TaskDialog task={open} onClose={() => setOpen(null)} />
       <NewTaskDialog open={creating} onOpenChange={setCreating} personal={personal} presetTemplate={preset} />
