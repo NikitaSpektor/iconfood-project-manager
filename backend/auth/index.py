@@ -200,6 +200,47 @@ def handler(event: dict, context) -> dict:
             return {'statusCode': 409, 'headers': CORS, 'body': json.dumps({'error': 'Такой сотрудник уже есть'})}
         return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'ok': True, 'login': login, 'password': password})}
 
+    if action == 'change_password':
+        me = current_user(cur, event)
+        if not me:
+            cur.close()
+            conn.close()
+            return {'statusCode': 401, 'headers': CORS, 'body': json.dumps({'error': 'Требуется вход'})}
+
+        current = str(body.get('current', ''))
+        fresh = str(body.get('password', ''))
+
+        if len(fresh) < 6:
+            cur.close()
+            conn.close()
+            return {'statusCode': 400, 'headers': CORS,
+                    'body': json.dumps({'error': 'Новый пароль — минимум 6 символов'})}
+
+        if fresh == current:
+            cur.close()
+            conn.close()
+            return {'statusCode': 400, 'headers': CORS,
+                    'body': json.dumps({'error': 'Новый пароль совпадает со старым'})}
+
+        login = me['login']
+        cur.execute('SELECT password_hash FROM users WHERE login = ' + q(login))
+        row = cur.fetchone()
+        if not row or row[0] != hash_password(login, current):
+            cur.close()
+            conn.close()
+            return {'statusCode': 400, 'headers': CORS,
+                    'body': json.dumps({'error': 'Текущий пароль указан неверно'})}
+
+        token = (event.get('headers') or {}).get('X-Auth-Token') or (event.get('headers') or {}).get('x-auth-token', '')
+        cur.execute('UPDATE users SET password_hash = ' + q(hash_password(login, fresh))
+                    + ' WHERE login = ' + q(login))
+        cur.execute('UPDATE sessions SET expires_at = NOW() WHERE token <> ' + q(token)
+                    + ' AND user_id IN (SELECT id FROM users WHERE login = ' + q(login) + ')')
+        conn.commit()
+        cur.close()
+        conn.close()
+        return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'ok': True})}
+
     if action in ('update', 'dismiss', 'restore', 'reset_password'):
         me = current_user(cur, event)
         if not me:

@@ -10,35 +10,65 @@
       "name": "Неверный пароль",
       "method": "POST",
       "path": "/",
-      "body": {"action": "login", "login": "elena.metla", "password": "wrong"},
+      "body": {
+        "action": "login",
+        "login": "elena.metla",
+        "password": "wrong"
+      },
       "expectedStatus": 401
     },
     {
       "name": "Правка сотрудника без входа запрещена",
       "method": "POST",
       "path": "/",
-      "body": {"action": "update", "login": "elena.metla", "name": "Тест", "email": "t@iconfood.ru"},
+      "body": {
+        "action": "update",
+        "login": "elena.metla",
+        "name": "Тест",
+        "email": "t@iconfood.ru"
+      },
       "expectedStatus": 401
     },
     {
       "name": "Отключение без входа запрещено",
       "method": "POST",
       "path": "/",
-      "body": {"action": "dismiss", "login": "elena.metla"},
+      "body": {
+        "action": "dismiss",
+        "login": "elena.metla"
+      },
       "expectedStatus": 401
     },
     {
       "name": "Сброс пароля без входа запрещён",
       "method": "POST",
       "path": "/",
-      "body": {"action": "reset_password", "login": "elena.metla"},
+      "body": {
+        "action": "reset_password",
+        "login": "elena.metla"
+      },
+      "expectedStatus": 401
+    },
+    {
+      "name": "Смена пароля без входа запрещена",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "change_password",
+        "current": "iconfood",
+        "password": "newpass123"
+      },
       "expectedStatus": 401
     },
     {
       "name": "Успешный вход",
       "method": "POST",
       "path": "/",
-      "body": {"action": "login", "login": "elena.metla", "password": "iconfood"},
+      "body": {
+        "action": "login",
+        "login": "elena.metla",
+        "password": "iconfood"
+      },
       "expectedStatus": 200
     }
   ]

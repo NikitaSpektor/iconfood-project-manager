@@ -14,6 +14,7 @@ import { toast } from '@/hooks/use-toast';
 import { RESTAURANTS, roleLabels, type Role } from '@/data/workspace';
 import { useWorkspace } from '@/hooks/use-workspace';
 import TelegramCard from '@/components/workspace/TelegramCard';
+import PasswordCard from '@/components/workspace/PasswordCard';
 import { testMail } from '@/lib/api';
 
 const notifications = [
@@ -107,6 +108,8 @@ export default function SettingsView() {
           </Button>
         </div>
       </section>
+
+      <PasswordCard />
 
       <section className="bento p-5 sm:p-6 animate-fade-in [animation-delay:.1s]">
         <div className="eyebrow mb-4">

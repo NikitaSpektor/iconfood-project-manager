@@ -102,6 +102,13 @@ export async function dismissMember(loginName: string) {
   });
 }
 
+export async function changeOwnPassword(current: string, password: string) {
+  return request(AUTH_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'change_password', current, password }),
+  });
+}
+
 export async function resetMemberPassword(loginName: string) {
   return request(AUTH_URL, {
     method: 'POST',
