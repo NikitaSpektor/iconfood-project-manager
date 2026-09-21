@@ -15,6 +15,7 @@ import { RESTAURANTS, roleLabels, type Role } from '@/data/workspace';
 import { useWorkspace } from '@/hooks/use-workspace';
 import TelegramCard from '@/components/workspace/TelegramCard';
 import PasswordCard from '@/components/workspace/PasswordCard';
+import PushCard from '@/components/workspace/PushCard';
 import { testMail } from '@/lib/api';
 
 const notifications = [
@@ -108,6 +109,8 @@ export default function SettingsView() {
           </Button>
         </div>
       </section>
+
+      <PushCard />
 
       <PasswordCard />
 

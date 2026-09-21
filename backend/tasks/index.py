@@ -13,6 +13,8 @@ from email.mime.text import MIMEText
 import boto3
 import psycopg2
 
+from webpush import push_to_login
+
 CORS = {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
@@ -92,6 +94,25 @@ def tg_personal(cur, login, text) -> None:
     row = cur.fetchone()
     if row:
         tg_send(row[0], text)
+
+
+def push_chat(cur, channel_id, author_login, author_name, text) -> None:
+    """Шлёт push о новом сообщении участникам канала, кроме автора."""
+    cur.execute('SELECT name, is_open FROM channels WHERE id = ' + str(int(channel_id)))
+    row = cur.fetchone()
+    if not row:
+        return
+    channel_name, is_open = row
+    if is_open:
+        cur.execute('SELECT login FROM users WHERE active = TRUE AND login <> ' + q(author_login))
+    else:
+        cur.execute(
+            'SELECT m.user_login FROM channel_members m JOIN users u ON u.login = m.user_login '
+            'WHERE m.channel_id = ' + str(int(channel_id)) + ' AND m.active = TRUE '
+            'AND u.active = TRUE AND m.user_login <> ' + q(author_login)
+        )
+    for (login,) in cur.fetchall():
+        push_to_login(cur, login, 'chat', channel_name, author_name + ': ' + text[:200])
 
 
 def tg_fanout(cur, channel_id, author_login, author_name, text) -> None:
@@ -289,6 +310,8 @@ def notify_one_assignee(cur, task_id, actor, title, restaurant, deadline, templa
         + q(target[0]) + ', ' + str(task_id) + ', ' + q(title) + ', ' + q('task') + ', '
         + q(actor) + ', ' + q(head[:300]) + ')'
     )
+    push_to_login(cur, target[0], 'task', 'Новая задача на вас',
+                  title + ((' · срок ' + deadline) if deadline else ''))
     steps = ''.join(
         '<li style="margin:4px 0;color:#333">' + str(s.get('title', ''))[:200] + '</li>'
         for s in (subtasks or [])
@@ -491,6 +514,8 @@ def announce_overdue(cur):
             if who:
                 tg_personal(cur, who[0], 'Просрочена ваша задача\n' + title
                             + '\nСрок был ' + deadline + ' — просрочка ' + str(days) + ' ' + tail)
+                push_to_login(cur, who[0], 'deadline', 'Просрочена задача',
+                              title + ' · срок был ' + deadline)
                 to_email, who_name = email_of(cur, who[0])
                 send_email(
                     to_email,
@@ -570,6 +595,12 @@ def daily_digest(cur):
             lines.append('…и ещё ' + str(len(rows) - 12))
         if chat_id:
             tg_send(chat_id, '\n'.join(lines))
+        hot = [r for r in rows if r[0] <= 1]
+        if hot:
+            first = hot[0]
+            head = 'Срок сегодня' if first[0] == 0 else ('Срок завтра' if first[0] == 1 else 'Просрочено')
+            tail = first[1] if len(hot) == 1 else first[1] + ' и ещё ' + str(len(hot) - 1)
+            push_to_login(cur, login, 'deadline', head, tail)
         if mail:
             letters.append((
                 mail,
@@ -610,6 +641,7 @@ def notify_one_activity(cur, task_id, title, actor, kind, text, assignee):
             else 'Задача изменена' if kind == 'update'
             else 'Комментарий к задаче')
     tg_personal(cur, target[0], head + '\n' + title + '\n' + actor + ': ' + text[:500])
+    push_to_login(cur, target[0], 'comment', head, actor + ': ' + text[:200])
     to_email, who_name = email_of(cur, target[0])
     if kind == 'update':
         lead = actor + ' изменил вашу задачу.'
@@ -638,6 +670,18 @@ def notify_one_activity(cur, task_id, title, actor, kind, text, assignee):
             extra,
         ),
     )
+
+
+def load_push_prefs(cur, login):
+    """Возвращает темы push-уведомлений сотрудника и признак активной подписки."""
+    cur.execute(
+        'SELECT on_task, on_deadline, on_comment, on_chat FROM push_subscriptions '
+        'WHERE active = TRUE AND user_login = ' + q(login) + ' ORDER BY id DESC LIMIT 1'
+    )
+    row = cur.fetchone()
+    if not row:
+        return {'enabled': False, 'task': True, 'deadline': True, 'comment': True, 'chat': False}
+    return {'enabled': True, 'task': row[0], 'deadline': row[1], 'comment': row[2], 'chat': row[3]}
 
 
 def load_notifications(cur, login):
@@ -886,12 +930,14 @@ def handler(event: dict, context) -> dict:
         tasks = visible_for(cur, user)
         notifications = load_notifications(cur, user['login'])
         channels = load_channels(cur, user)
+        push = load_push_prefs(cur, user['login'])
         cur.close()
         conn.close()
         return {
             'statusCode': 200,
             'headers': CORS,
-            'body': json.dumps({'tasks': tasks, 'notifications': notifications, 'channels': channels}),
+            'body': json.dumps({'tasks': tasks, 'notifications': notifications,
+                                'channels': channels, 'push': push}),
         }
 
     body = json.loads(event.get('body') or '{}')
@@ -1009,6 +1055,7 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             body_text = text[:2000] if text else ('Файл: ' + f_name)
             tg_fanout(cur, int(body.get('channelId')), user['login'], user['name'], body_text)
+            push_chat(cur, int(body.get('channelId')), user['login'], user['name'], body_text)
     elif action == 'read_channel':
         channel_id = int(body.get('channelId'))
         cur.execute('SELECT COALESCE(MAX(id), 0) FROM messages WHERE channel_id = ' + str(channel_id))
@@ -1018,6 +1065,52 @@ def handler(event: dict, context) -> dict:
             + str(channel_id) + ', ' + q(user['login']) + ', ' + str(last_id) + ') '
             'ON CONFLICT (channel_id, user_login) DO UPDATE SET last_read_id = ' + str(last_id)
         )
+        conn.commit()
+    elif action == 'push_subscribe':
+        sub = body.get('subscription') or {}
+        endpoint = str(sub.get('endpoint', ''))
+        keys = sub.get('keys') or {}
+        p256dh = str(keys.get('p256dh', ''))
+        auth_key = str(keys.get('auth', ''))
+        prefs = body.get('prefs') or {}
+        if endpoint and p256dh and auth_key:
+            flags = []
+            for name, column in (('task', 'on_task'), ('deadline', 'on_deadline'),
+                                 ('comment', 'on_comment'), ('chat', 'on_chat')):
+                flags.append('TRUE' if prefs.get(name, name != 'chat') else 'FALSE')
+            agent = str((event.get('headers') or {}).get('User-Agent', ''))[:300]
+            cur.execute(
+                'INSERT INTO push_subscriptions (user_login, endpoint, p256dh, auth, user_agent, '
+                'on_task, on_deadline, on_comment, on_chat) VALUES ('
+                + q(user['login']) + ', ' + q(endpoint) + ', ' + q(p256dh) + ', ' + q(auth_key) + ', '
+                + q(agent) + ', ' + ', '.join(flags) + ') '
+                'ON CONFLICT (endpoint) DO UPDATE SET user_login = EXCLUDED.user_login, '
+                'p256dh = EXCLUDED.p256dh, auth = EXCLUDED.auth, active = TRUE, '
+                'on_task = EXCLUDED.on_task, on_deadline = EXCLUDED.on_deadline, '
+                'on_comment = EXCLUDED.on_comment, on_chat = EXCLUDED.on_chat'
+            )
+            conn.commit()
+    elif action == 'push_prefs':
+        prefs = body.get('prefs') or {}
+        sets = []
+        for name, column in (('task', 'on_task'), ('deadline', 'on_deadline'),
+                             ('comment', 'on_comment'), ('chat', 'on_chat')):
+            if name in prefs:
+                sets.append(column + ' = ' + ('TRUE' if prefs.get(name) else 'FALSE'))
+        if sets:
+            cur.execute('UPDATE push_subscriptions SET ' + ', '.join(sets)
+                        + ' WHERE user_login = ' + q(user['login']))
+            conn.commit()
+    elif action == 'push_unsubscribe':
+        endpoint = str(body.get('endpoint', ''))
+        if endpoint:
+            cur.execute('UPDATE push_subscriptions SET active = FALSE WHERE endpoint = ' + q(endpoint))
+        else:
+            cur.execute('UPDATE push_subscriptions SET active = FALSE WHERE user_login = ' + q(user['login']))
+        conn.commit()
+    elif action == 'push_test':
+        push_to_login(cur, user['login'], 'task', 'Проверка уведомлений',
+                      'Если вы видите это сообщение — push работает.')
         conn.commit()
     elif action == 'read_notifications':
         cur.execute('UPDATE notifications SET is_read = TRUE WHERE recipient_login = ' + q(user['login']))
@@ -1267,10 +1360,12 @@ def handler(event: dict, context) -> dict:
     tasks = visible_for(cur, user)
     notifications = load_notifications(cur, user['login'])
     channels = load_channels(cur, user)
+    push = load_push_prefs(cur, user['login'])
     cur.close()
     conn.close()
     return {
         'statusCode': 200,
         'headers': CORS,
-        'body': json.dumps({'tasks': tasks, 'notifications': notifications, 'channels': channels}),
+        'body': json.dumps({'tasks': tasks, 'notifications': notifications,
+                            'channels': channels, 'push': push}),
     }
