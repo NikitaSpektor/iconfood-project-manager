@@ -165,9 +165,24 @@ export function deadlineTone(deadline: string, column: ColumnId) {
 }
 
 export const toneClasses = {
-  hot: { dot: 'bg-flag-hot', text: 'text-flag-hot', soft: 'bg-flag-hot/10' },
-  soon: { dot: 'bg-flag-soon', text: 'text-flag-soon', soft: 'bg-flag-soon/10' },
-  done: { dot: 'bg-flag-done', text: 'text-flag-done', soft: 'bg-flag-done/10' },
+  hot: {
+    dot: 'bg-flag-hot',
+    text: 'text-flag-hot',
+    soft: 'bg-flag-hot/10',
+    chip: 'bg-flag-hot sm:bg-flag-hot/10',
+  },
+  soon: {
+    dot: 'bg-flag-soon',
+    text: 'text-flag-soon',
+    soft: 'bg-flag-soon/10',
+    chip: 'bg-flag-soon sm:bg-flag-soon/10',
+  },
+  done: {
+    dot: 'bg-flag-done',
+    text: 'text-flag-done',
+    soft: 'bg-flag-done/10',
+    chip: 'bg-flag-done sm:bg-flag-done/10',
+  },
 };
 
 export const TEMPLATES = [

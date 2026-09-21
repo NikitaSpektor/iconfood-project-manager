@@ -2,6 +2,8 @@ import { useState } from 'react';
 import Icon from '@/components/ui/icon';
 import NotificationsBell from './NotificationsBell';
 import MessagesBell from './MessagesBell';
+import InstallGuideDialog from './InstallGuideDialog';
+import { useInstallPrompt } from '@/hooks/use-install-prompt';
 import { cn } from '@/lib/utils';
 import {
   DropdownMenu,
@@ -58,6 +60,8 @@ interface TopNavProps {
 
 export default function TopNav({ view, onChange, onLogout, userName, userRole, onOpenTask, nav = NAV }: TopNavProps) {
   const [open, setOpen] = useState(false);
+  const [install, setInstall] = useState(false);
+  const { installed } = useInstallPrompt();
   const primary = nav.slice(0, 5);
   const rest = nav.slice(5);
 
@@ -145,6 +149,12 @@ export default function TopNav({ view, onChange, onLogout, userName, userRole, o
                 <Icon name="Settings" size={15} />
                 Настройки профиля
               </DropdownMenuItem>
+              {!installed && (
+                <DropdownMenuItem onSelect={() => setInstall(true)} className="gap-2 text-sm cursor-pointer">
+                  <Icon name="Smartphone" size={15} />
+                  Ярлык на телефон
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onSelect={onLogout} className="gap-2 text-sm cursor-pointer">
                 <Icon name="LogOut" size={15} />
                 Выйти
@@ -186,6 +196,8 @@ export default function TopNav({ view, onChange, onLogout, userName, userRole, o
           </div>
         </div>
       )}
+
+      <InstallGuideDialog open={install} onOpenChange={setInstall} />
     </header>
   );
 }

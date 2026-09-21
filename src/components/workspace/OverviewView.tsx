@@ -91,7 +91,7 @@ export default function OverviewView({ onGo }: { onGo: (v: ViewId) => void }) {
           </figure>
 
           <p className="pt-4 text-[12px] text-muted-foreground">
-            <sup className="text-primary">*</sup> Личная доска. Общая доска холдинга — справа.
+            <sup className="text-primary">*</sup> Личная доска. Общая доска холдинга — рядом.
           </p>
         </section>
 
@@ -102,7 +102,7 @@ export default function OverviewView({ onGo }: { onGo: (v: ViewId) => void }) {
             Общая доска холдинга
           </div>
 
-          <div className="grid grid-cols-3 gap-2.5 min-h-0 overflow-hidden">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 min-h-0 overflow-hidden">
             {columns.map((col) => {
               const list = tasks.filter((t) => t.column === col && !t.personal);
               return (

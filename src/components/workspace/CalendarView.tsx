@@ -111,13 +111,14 @@ export default function CalendarView() {
                       key={t.id}
                       onClick={() => setOpen(t)}
                       className={cn(
-                        'text-left text-[9px] sm:text-[10px] leading-tight rounded-md px-1 sm:px-1.5 py-0.5 sm:py-1 truncate transition-opacity hover:opacity-75',
-                        tone.soft,
+                        'text-left leading-tight rounded-md transition-opacity hover:opacity-75',
+                        'h-1.5 w-full sm:h-auto sm:w-auto sm:text-[10px] sm:px-1.5 sm:py-1 sm:truncate',
+                        tone.chip,
                         tone.text,
                       )}
                       title={t.title}
                     >
-                      {t.title}
+                      <span className="hidden sm:inline">{t.title}</span>
                     </button>
                   );
                 })}

@@ -92,8 +92,8 @@ export default function ChatView() {
   }
 
   return (
-    <div className="grid gap-3.5 lg:grid-cols-[300px_1fr] flex-1 min-h-0">
-      <section className="bento p-4 sm:p-5 flex flex-col min-h-0 max-h-[42vh] lg:max-h-none animate-fade-in">
+    <div className="grid gap-3.5 lg:grid-cols-[300px_minmax(0,1fr)] flex-1 min-h-0 min-w-0">
+      <section className="bento p-4 sm:p-5 flex flex-col min-h-0 min-w-0 max-h-[42vh] lg:max-h-none animate-fade-in">
         <div className="flex items-center gap-2 mb-3">
           <div className="eyebrow mr-auto">
             <i className="h-2.5 w-2.5 rounded-[3px] bg-bar" />
@@ -183,7 +183,7 @@ export default function ChatView() {
         </div>
       </section>
 
-      <section className="bento p-0 flex flex-col min-h-0 overflow-hidden animate-fade-in [animation-delay:.1s]">
+      <section className="bento p-0 flex flex-col min-h-0 min-w-0 overflow-hidden animate-fade-in [animation-delay:.1s]">
         <div className="flex items-center gap-3 px-5 py-4 border-b border-line flex-none">
           <div className="h-9 w-9 rounded-full bg-avatar flex items-center justify-center flex-none font-head text-[11px] font-semibold">
             {active.kind === 'direct' ? (
@@ -192,9 +192,9 @@ export default function ChatView() {
               <Icon name={active.unit ? 'Building2' : 'Hash'} size={16} className="text-foreground/60" />
             )}
           </div>
-          <div>
-            <div className="font-head font-semibold text-[14px] leading-tight">{active.name}</div>
-            <div className="text-[12px] text-muted-foreground">
+          <div className="min-w-0">
+            <div className="font-head font-semibold text-[14px] leading-tight truncate">{active.name}</div>
+            <div className="text-[12px] text-muted-foreground truncate">
               {active.open === false && active.members?.length
                 ? active.members.slice(0, 3).map((m) => m.name).join(', ') +
                   (active.members.length > 3 ? ` и ещё ${active.members.length - 3}` : '')
