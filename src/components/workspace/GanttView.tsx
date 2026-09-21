@@ -6,6 +6,8 @@ import { deadlineTone, toneClasses, type Task } from '@/data/workspace';
 import TaskDialog from './TaskDialog';
 import ScopeFilters, { useDefaultPlace, useScopeFilter } from './ScopeFilters';
 import { MONTHS_GEN, MONTHS_NOM, daysInMonth, today } from '@/lib/dates';
+import { unitsOf } from '@/lib/units';
+import { taskBar } from '@/lib/task-gantt';
 
 export default function GanttView() {
   const { tasks } = useWorkspace();
@@ -26,9 +28,11 @@ export default function GanttView() {
   const tracks = useMemo(() => {
     const map = new Map<string, Task[]>();
     rows.forEach((t) => {
-      map.set(t.track, [...(map.get(t.track) ?? []), t]);
+      const names = unitsOf(t);
+      const keys = names.length ? names : ['Без подразделения'];
+      keys.forEach((name) => map.set(name, [...(map.get(name) ?? []), t]));
     });
-    return [...map.entries()];
+    return [...map.entries()].sort((a, b) => b[1].length - a[1].length);
   }, [rows]);
 
   return (
@@ -98,7 +102,7 @@ export default function GanttView() {
                             'absolute inset-y-0 rounded-md transition-opacity hover:opacity-80',
                             t.column === 'done' ? 'bg-bar' : tone.dot,
                           )}
-                          style={{ left: `${t.ganttStart}%`, width: `${t.ganttSpan}%` }}
+                          style={{ left: `${taskBar(t).left}%`, width: `${taskBar(t).width}%` }}
                         />
                         <div
                           className="absolute -inset-y-1 w-[1.5px] bg-primary"

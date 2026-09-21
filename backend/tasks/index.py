@@ -790,7 +790,8 @@ def visible_for(cur, user):
 def load_tasks(cur, login):
     cur.execute(
         'SELECT id, title, restaurant, column_id, priority, cover, deadline, assignee, watchers, '
-        'template, note, track, gantt_start, gantt_span, owner_login FROM tasks WHERE archived = FALSE ORDER BY id DESC'
+        'template, note, track, gantt_start, gantt_span, owner_login, created_at '
+        'FROM tasks WHERE archived = FALSE ORDER BY id DESC'
     )
     rows = cur.fetchall()
     cur.execute('SELECT task_id, id, title, done FROM subtasks WHERE archived = FALSE ORDER BY position, id')
@@ -852,6 +853,7 @@ def load_tasks(cur, login):
             'ganttSpan': r[13],
             'personal': bool(r[14]) and r[14] == login and not shared_with_others,
             'ownerLogin': r[14] or '',
+            'createdAt': r[15].isoformat() if r[15] else '',
             'subtasks': subs.get(r[0], []),
             'comments': comments.get(r[0], []),
             'attachments': files.get(r[0], []),

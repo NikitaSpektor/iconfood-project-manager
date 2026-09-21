@@ -50,6 +50,7 @@ export interface Task {
   comments?: Comment[];
   attachments?: Attachment[];
   note?: string;
+  createdAt?: string;
   ganttStart: number;
   ganttSpan: number;
   track: string;
