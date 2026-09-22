@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/hooks/use-workspace';
 import { deadlineTone, toneClasses, type Task } from '@/data/workspace';
 import TaskDialog from './TaskDialog';
-import ScopeFilters, { useDefaultPlace, useScopeFilter } from './ScopeFilters';
+import ScopeFilters, { ALL_MONTHS, useDefaultPlace, useScopeFilter } from './ScopeFilters';
 import { MONTHS_GEN, MONTHS_NOM, daysInMonth, monthLead, parseDeadline, today } from '@/lib/dates';
 import { unitsShort } from '@/lib/units';
 import {
@@ -23,16 +23,18 @@ export default function CalendarView() {
   const [place, setPlace] = useState('all');
   const [owner, setOwner] = useState('all');
   const [dayOpen, setDayOpen] = useState<number | null>(null);
+  const [monthKey, setMonthKey] = useState(ALL_MONTHS);
   useDefaultPlace(setPlace);
 
-  const rows = useScopeFilter(tasks, place, owner);
+  const rows = useScopeFilter(tasks, place, owner, monthKey);
 
   const now = today();
-  const year = now.getFullYear();
-  const month = now.getMonth();
+  const picked = monthKey === ALL_MONTHS ? null : monthKey.split('-').map(Number);
+  const year = picked ? picked[0] : now.getFullYear();
+  const month = picked ? picked[1] - 1 : now.getMonth();
   const LEAD = monthLead(year, month);
   const DAYS = daysInMonth(year, month);
-  const TODAY = now.getDate();
+  const TODAY = month === now.getMonth() && year === now.getFullYear() ? now.getDate() : -1;
 
   const byDay = useMemo(() => {
     const map = new Map<number, Task[]>();
@@ -64,8 +66,10 @@ export default function CalendarView() {
           tasks={tasks}
           place={place}
           owner={owner}
+          month={monthKey}
           onPlace={setPlace}
           onOwner={setOwner}
+          onMonth={setMonthKey}
         />
       </section>
 

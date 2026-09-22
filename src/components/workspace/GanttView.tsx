@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { useWorkspace } from '@/hooks/use-workspace';
 import { deadlineTone, toneClasses, type Task } from '@/data/workspace';
 import TaskDialog from './TaskDialog';
-import ScopeFilters, { useDefaultPlace, useScopeFilter } from './ScopeFilters';
+import ScopeFilters, { ALL_MONTHS, useDefaultPlace, useScopeFilter } from './ScopeFilters';
 import { MONTHS_GEN, MONTHS_NOM, daysInMonth, today } from '@/lib/dates';
 import { unitsOf } from '@/lib/units';
 import { taskBar } from '@/lib/task-gantt';
@@ -14,15 +14,18 @@ export default function GanttView() {
   const [open, setOpen] = useState<Task | null>(null);
   const [place, setPlace] = useState('all');
   const [owner, setOwner] = useState('all');
+  const [monthKey, setMonthKey] = useState(ALL_MONTHS);
   useDefaultPlace(setPlace);
 
-  const rows = useScopeFilter(tasks, place, owner);
+  const rows = useScopeFilter(tasks, place, owner, monthKey);
 
   const now = today();
-  const month = now.getMonth();
-  const year = now.getFullYear();
+  const picked = monthKey === ALL_MONTHS ? null : monthKey.split('-').map(Number);
+  const month = picked ? picked[1] - 1 : now.getMonth();
+  const year = picked ? picked[0] : now.getFullYear();
   const total = daysInMonth(year, month);
   const days = Array.from({ length: total }, (_, i) => i + 1);
+  const sameMonth = month === now.getMonth() && year === now.getFullYear();
   const TODAY = now.getDate();
 
   const tracks = useMemo(() => {
@@ -41,7 +44,8 @@ export default function GanttView() {
         <div className="mr-auto">
           <div className="font-head font-semibold text-[14px]">Диаграмма Ганта · {MONTHS_NOM[month]} {year}</div>
           <div className="text-[12px] text-muted-foreground">
-            Линия — сегодня, {TODAY} {MONTHS_GEN[month]} · {rows.length} задач
+            {sameMonth ? `Линия — сегодня, ${TODAY} ${MONTHS_GEN[month]} · ` : ''}
+            {rows.length} задач
             {place !== 'all' && ` · ${place}`}
             {owner !== 'all' && ` · ${owner}`}
           </div>
@@ -50,8 +54,10 @@ export default function GanttView() {
           tasks={tasks}
           place={place}
           owner={owner}
+          month={monthKey}
           onPlace={setPlace}
           onOwner={setOwner}
+          onMonth={setMonthKey}
         />
         <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
           <span className="flex items-center gap-1.5">

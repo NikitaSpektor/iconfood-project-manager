@@ -15,7 +15,7 @@ import {
 import TaskTile from './TaskTile';
 import TaskDialog from './TaskDialog';
 import NewTaskDialog from './NewTaskDialog';
-import ScopeFilters, { useDefaultPlace } from './ScopeFilters';
+import ScopeFilters, { ALL_MONTHS, monthKeyOf, monthLabel, useDefaultPlace } from './ScopeFilters';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,6 +34,7 @@ export default function BoardView({ personal }: { personal: boolean }) {
   const [query, setQuery] = useState('');
   const [place, setPlace] = useState('all');
   const [owner, setOwner] = useState('all');
+  const [month, setMonth] = useState(ALL_MONTHS);
   const [over, setOver] = useState<ColumnId | null>(null);
 
   useDefaultPlace(setPlace, personal);
@@ -62,8 +63,9 @@ export default function BoardView({ personal }: { personal: boolean }) {
       mine
         .filter((t) => place === 'all' || unitsOf(t).includes(place))
         .filter((t) => owner === 'all' || assigneesOf(t).includes(owner))
+        .filter((t) => month === ALL_MONTHS || monthKeyOf(t) === month)
         .filter((t) => t.title.toLowerCase().includes(query.trim().toLowerCase())),
-    [mine, place, owner, query],
+    [mine, place, owner, month, query],
   );
 
 
@@ -83,6 +85,7 @@ export default function BoardView({ personal }: { personal: boolean }) {
               {personal && fromHolding > 0 && ` · ${fromHolding} с доски холдинга`}
               {place !== 'all' && ` · ${place}`}
               {owner !== 'all' && ` · ${owner}`}
+              {month !== ALL_MONTHS && ` · ${monthLabel(month)}`}
             </div>
           </div>
         </div>
@@ -105,8 +108,10 @@ export default function BoardView({ personal }: { personal: boolean }) {
           tasks={mine}
           place={place}
           owner={owner}
+          month={month}
           onPlace={setPlace}
           onOwner={setOwner}
+          onMonth={setMonth}
         />
 
         {mayUseTemplates && (

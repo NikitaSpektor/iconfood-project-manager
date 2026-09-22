@@ -12,14 +12,47 @@ import { useWorkspace } from '@/hooks/use-workspace';
 import { RESTAURANTS, type Task } from '@/data/workspace';
 import { assigneesOf } from '@/lib/assignees';
 import { unitsOf } from '@/lib/units';
+import { MONTHS_NOM, parseDeadline, today } from '@/lib/dates';
 
-export function useScopeFilter(tasks: Task[], place: string, owner: string) {
+export const ALL_MONTHS = 'all';
+
+export function monthKeyOf(task: Task) {
+  const due = parseDeadline(task.deadline ?? '');
+  if (!due) return '';
+  return `${due.getFullYear()}-${String(due.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export function monthLabel(key: string) {
+  const [year, month] = key.split('-').map(Number);
+  const name = MONTHS_NOM[month - 1] ?? key;
+  const title = name.charAt(0).toUpperCase() + name.slice(1);
+  return year === today().getFullYear() ? title : `${title} ${year}`;
+}
+
+export function useMonthOptions(tasks: Task[]) {
+  return useMemo(() => {
+    const keys = new Set<string>();
+    tasks.forEach((t) => {
+      const key = monthKeyOf(t);
+      if (key) keys.add(key);
+    });
+    return Array.from(keys).sort();
+  }, [tasks]);
+}
+
+export function useScopeFilter(
+  tasks: Task[],
+  place: string,
+  owner: string,
+  month: string = ALL_MONTHS,
+) {
   return useMemo(
     () =>
       tasks
         .filter((t) => place === 'all' || unitsOf(t).includes(place))
-        .filter((t) => owner === 'all' || assigneesOf(t).includes(owner)),
-    [tasks, place, owner],
+        .filter((t) => owner === 'all' || assigneesOf(t).includes(owner))
+        .filter((t) => month === ALL_MONTHS || monthKeyOf(t) === month),
+    [tasks, place, owner, month],
   );
 }
 
@@ -36,16 +69,21 @@ export default function ScopeFilters({
   tasks,
   place,
   owner,
+  month = ALL_MONTHS,
   onPlace,
   onOwner,
+  onMonth,
 }: {
   tasks: Task[];
   place: string;
   owner: string;
+  month?: string;
   onPlace: (v: string) => void;
   onOwner: (v: string) => void;
+  onMonth?: (v: string) => void;
 }) {
   const { user } = useWorkspace();
+  const months = useMonthOptions(tasks);
 
   const owners = useMemo(
     () =>
@@ -55,7 +93,7 @@ export default function ScopeFilters({
     [tasks],
   );
 
-  const dirty = place !== 'all' || owner !== 'all';
+  const dirty = place !== 'all' || owner !== 'all' || month !== ALL_MONTHS;
 
   return (
     <>
@@ -94,6 +132,22 @@ export default function ScopeFilters({
         </SelectContent>
       </Select>
 
+      {onMonth && (
+        <Select value={month} onValueChange={onMonth}>
+          <SelectTrigger className="flex-1 min-w-[130px] sm:flex-none sm:w-[150px] h-9 rounded-full text-[12px] border-line bg-card">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent className="rounded-2xl">
+            <SelectItem value={ALL_MONTHS} className="text-[13px]">Все месяцы</SelectItem>
+            {months.map((m) => (
+              <SelectItem key={m} value={m} className="text-[13px]">
+                {monthLabel(m)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
       {dirty && (
         <Button
           type="button"
@@ -101,6 +155,7 @@ export default function ScopeFilters({
           onClick={() => {
             onPlace('all');
             onOwner('all');
+            onMonth?.(ALL_MONTHS);
           }}
           className="rounded-full h-9 border-line text-[12px] gap-1.5 flex-none"
         >
