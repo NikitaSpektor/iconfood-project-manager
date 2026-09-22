@@ -12,9 +12,6 @@ CORS = {
     'Content-Type': 'application/json',
 }
 
-UNIT = 'Отдел обучения и развития персонала'
-
-
 def q(value) -> str:
     if value is None:
         return 'NULL'
@@ -37,8 +34,16 @@ def current_user(cur, event):
     return {'login': row[0], 'name': row[1], 'role': row[2], 'restaurant': row[3]}
 
 
-def may_view(user) -> bool:
-    return user['role'] == 'owner' or user['restaurant'] == UNIT
+def visible_logins(cur, user):
+    """Чьи планировщики доступны: владельцу — все, управляющему — его подразделение, остальным — свой."""
+    if user['role'] == 'owner':
+        cur.execute('SELECT login FROM users WHERE active = TRUE')
+        return set(r[0] for r in cur.fetchall())
+    if user['role'] == 'manager' and user.get('restaurant'):
+        cur.execute('SELECT login FROM users WHERE active = TRUE AND restaurant = '
+                    + q(user['restaurant']))
+        return set(r[0] for r in cur.fetchall()) | {user['login']}
+    return {user['login']}
 
 
 def week_bounds(day_str: str):
@@ -51,13 +56,17 @@ def week_bounds(day_str: str):
     return start, start + timedelta(days=6), anchor
 
 
-def load_week(cur, start: date, end: date):
+def load_week(cur, start: date, end: date, logins):
+    if not logins:
+        return []
+    allowed = ', '.join(q(l) for l in sorted(logins))
     cur.execute(
         'SELECT p.id, p.user_login, u.name, p.day, p.start_min, p.end_min, p.title, '
         'p.note, p.kind, p.place, p.task_id '
         'FROM planner_entries p LEFT JOIN users u ON u.login = p.user_login '
         'WHERE p.archived = FALSE AND p.day >= ' + q(start.isoformat())
         + ' AND p.day <= ' + q(end.isoformat())
+        + ' AND p.user_login IN (' + allowed + ')'
         + ' ORDER BY p.day, p.start_min, p.id'
     )
     entries = []
@@ -78,23 +87,31 @@ def load_week(cur, start: date, end: date):
     return entries
 
 
-def load_people(cur):
+def load_people(cur, logins):
+    if not logins:
+        return []
+    allowed = ', '.join(q(l) for l in sorted(logins))
     cur.execute(
         'SELECT login, name, position FROM users '
-        'WHERE active = TRUE AND restaurant = ' + q(UNIT) + ' ORDER BY name'
+        'WHERE active = TRUE AND login IN (' + allowed + ') ORDER BY name'
     )
     return [{'login': r[0], 'name': r[1], 'position': r[2] or ''} for r in cur.fetchall()]
 
 
 def payload(cur, user, day_str: str):
     start, end, anchor = week_bounds(day_str)
+    logins = visible_logins(cur, user)
     return {
-        'entries': load_week(cur, start, end),
-        'people': load_people(cur),
+        'entries': load_week(cur, start, end, logins),
+        'people': load_people(cur, logins),
         'weekStart': start.isoformat(),
         'day': anchor.isoformat(),
         'me': {'login': user['login'], 'name': user['name'], 'role': user['role']},
-        'canEdit': user['restaurant'] == UNIT,
+        'canEdit': True,
+        'scope': ('all' if user['role'] == 'owner'
+                  else 'unit' if user['role'] == 'manager' and user.get('restaurant')
+                  else 'self'),
+        'unit': user.get('restaurant') or '',
     }
 
 
@@ -123,13 +140,6 @@ def handler(event: dict, context) -> dict:
                     'headers': CORS,
                     'body': json.dumps({'error': 'Нужно войти в систему'}),
                 }
-            if not may_view(user):
-                return {
-                    'statusCode': 403,
-                    'headers': CORS,
-                    'body': json.dumps({'error': 'Планировщик доступен отделу обучения'}),
-                }
-
             if method == 'GET':
                 params = event.get('queryStringParameters') or {}
                 data = payload(cur, user, params.get('day') or '')

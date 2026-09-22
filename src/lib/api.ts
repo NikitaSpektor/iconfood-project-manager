@@ -203,6 +203,8 @@ export interface PlannerData {
   day: string;
   me: { login: string; name: string; role: string };
   canEdit: boolean;
+  scope?: 'all' | 'unit' | 'self';
+  unit?: string;
 }
 
 export async function fetchPlanner(day: string) {

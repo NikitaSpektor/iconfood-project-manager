@@ -86,6 +86,13 @@ export default function PlannerView() {
   );
 
   const canEdit = data?.canEdit ?? false;
+  const scope = data?.scope ?? 'self';
+  const scopeLabel =
+    scope === 'all'
+      ? 'Планировщики холдинга'
+      : scope === 'unit'
+        ? `Подразделение · ${data?.unit || ''}`
+        : 'Только мой день';
   const isToday = day === isoDay(new Date());
 
   function openSlot(start: number) {
@@ -154,9 +161,9 @@ export default function PlannerView() {
             Мой планировщик · {dayLabel(day)}
           </div>
           <div className="text-[12px] text-muted-foreground">
-            {dayEntries.length} записей
+            {scopeLabel}
+            {` · ${dayEntries.length} записей`}
             {myTotal > 0 && ` · у вас занято ${durationLabel(0, myTotal)}`}
-            {!canEdit && ' · режим просмотра'}
           </div>
         </div>
 
@@ -219,20 +226,22 @@ export default function PlannerView() {
           );
         })}
 
-        <div className="ml-auto flex items-center gap-2">
-          <select
-            value={who}
-            onChange={(e) => setWho(e.target.value)}
-            className="h-9 rounded-full border border-line bg-card px-3 text-[12px] text-muted-foreground"
-          >
-            <option value="all">Весь отдел</option>
-            {people.map((p) => (
-              <option key={p.login} value={p.login}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        </div>
+        {people.length > 1 && (
+          <div className="ml-auto flex items-center gap-2">
+            <select
+              value={who}
+              onChange={(e) => setWho(e.target.value)}
+              className="h-9 rounded-full border border-line bg-card px-3 text-[12px] text-muted-foreground"
+            >
+              <option value="all">{scope === 'all' ? 'Весь холдинг' : 'Всё подразделение'}</option>
+              {people.map((p) => (
+                <option key={p.login} value={p.login}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </section>
 
       <section className="bento p-0 flex-1 min-h-0 flex flex-col animate-fade-in [animation-delay:.1s] overflow-hidden">
@@ -243,7 +252,7 @@ export default function PlannerView() {
           </div>
         ) : columns.length === 0 ? (
           <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm">
-            В отделе пока нет сотрудников
+            На этот день записей пока нет
           </div>
         ) : (
           <div className="flex-1 min-h-0 overflow-auto thin-scrollbar">

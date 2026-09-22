@@ -33,7 +33,7 @@ export const NAV: { id: ViewId; label: string; icon: string; dot?: boolean; unit
   { id: 'board', label: 'Доска холдинга', icon: 'Columns3' },
   { id: 'gantt', label: 'Гант', icon: 'GanttChart', dot: true },
   { id: 'calendar', label: 'Календарь', icon: 'CalendarDays' },
-  { id: 'planner', label: 'Мой планировщик', icon: 'CalendarClock', unit: true },
+  { id: 'planner', label: 'Мой планировщик', icon: 'CalendarClock' },
   { id: 'chat', label: 'Мессенджер', icon: 'MessageSquare' },
   { id: 'reports', label: 'Отчёты', icon: 'ChartNoAxesColumn' },
   { id: 'ai', label: 'Ассистент', icon: 'Sparkles' },
@@ -41,11 +41,10 @@ export const NAV: { id: ViewId; label: string; icon: string; dot?: boolean; unit
   { id: 'settings', label: 'Настройки', icon: 'Settings' },
 ];
 
-export const PLANNER_UNIT = 'Отдел обучения и развития персонала';
-
 export function visibleNav(role: string, restaurant: string) {
-  const allowPlanner = role === 'owner' || restaurant === PLANNER_UNIT;
-  return NAV.filter((item) => !item.unit || allowPlanner);
+  void role;
+  void restaurant;
+  return NAV.filter((item) => !item.unit);
 }
 
 interface TopNavProps {

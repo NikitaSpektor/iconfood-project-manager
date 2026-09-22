@@ -59,12 +59,7 @@ def can_manage(cur, user, task_id=None) -> bool:
         return owner_login == user['login'] or user.get('role') == 'owner'
     if user.get('role') == 'manager':
         unit = user.get('restaurant') or ''
-        if not unit:
-            return False
-        if unit in people_list(restaurant):
-            return True
-        mates = unit_colleagues(cur, unit)
-        return bool(mates.intersection(people_list(assignee)))
+        return bool(unit) and unit in people_list(restaurant)
     return False
 
 
@@ -788,7 +783,7 @@ def unit_colleagues(cur, unit: str) -> set:
 
 
 def visible_task(task, user, colleagues=None) -> bool:
-    """Владелец видит всё, управляющий — своё подразделение и задачи подчинённых, остальные — свои."""
+    """Владелец видит всё, управляющий — своё подразделение, остальные — задачи со своим участием."""
     owner_login = task['ownerLogin']
     people = task['assignees'] + task['watchers']
     if user.get('role') == 'owner':
@@ -798,10 +793,7 @@ def visible_task(task, user, colleagues=None) -> bool:
     if user['name'] in people:
         return True
     if user.get('role') == 'manager' and user.get('restaurant'):
-        if user['restaurant'] in task['units']:
-            return True
-        if colleagues and colleagues.intersection(people):
-            return True
+        return user['restaurant'] in task['units']
     return False
 
 
@@ -812,10 +804,7 @@ def editable_task(task, user, colleagues=None) -> bool:
     if user.get('role') == 'owner':
         return True
     if user.get('role') == 'manager' and user.get('restaurant'):
-        if user['restaurant'] in task['units']:
-            return True
-        if colleagues and colleagues.intersection(task['assignees']):
-            return True
+        return user['restaurant'] in task['units']
     return False
 
 
