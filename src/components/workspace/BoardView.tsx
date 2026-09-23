@@ -41,21 +41,13 @@ export default function BoardView({ personal }: { personal: boolean }) {
 
   const isMine = useCallback(
     (t: Task) =>
-      t.personal ||
-      t.ownerLogin === user.login ||
-      assigneesOf(t).includes(user.name) ||
-      (t.watchers ?? []).includes(user.name),
-    [user.login, user.name],
+      assigneesOf(t).includes(user.name) || (t.watchers ?? []).includes(user.name),
+    [user.name],
   );
 
   const mine = useMemo(
     () => (personal ? tasks.filter(isMine) : tasks.filter((t) => !t.personal)),
     [tasks, personal, isMine],
-  );
-
-  const fromHolding = useMemo(
-    () => (personal ? mine.filter((t) => !t.personal).length : 0),
-    [mine, personal],
   );
 
   const scope = useMemo(
@@ -82,7 +74,7 @@ export default function BoardView({ personal }: { personal: boolean }) {
             </div>
             <div className="text-[12px] text-muted-foreground">
               {scope.length} задач
-              {personal && fromHolding > 0 && ` · ${fromHolding} с доски холдинга`}
+              {personal && ' · где вы ответственный или наблюдатель'}
               {place !== 'all' && ` · ${place}`}
               {owner !== 'all' && ` · ${owner}`}
               {month !== ALL_MONTHS && ` · ${monthLabel(month)}`}
