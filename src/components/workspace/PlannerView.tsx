@@ -86,6 +86,14 @@ export default function PlannerView() {
   );
 
   const canEdit = data?.canEdit ?? false;
+  const editable = useMemo(
+    () => new Set(data?.editableLogins ?? [user.login]),
+    [data, user.login],
+  );
+  const editablePeople = useMemo(
+    () => people.filter((p) => editable.has(p.login)),
+    [people, editable],
+  );
   const scope = data?.scope ?? 'self';
   const scopeLabel =
     scope === 'all'
@@ -95,14 +103,21 @@ export default function PlannerView() {
         : 'Только мой день';
   const isToday = day === isoDay(new Date());
 
-  function openSlot(start: number) {
-    if (!canEdit) return;
-    setDraft({ start, end: Math.min(start + 60, DAY_END), title: '', note: '', kind: 'work', place: '' });
+  function openSlot(start: number, login = user.login) {
+    if (!canEdit || !editable.has(login)) return;
+    setDraft({
+      start,
+      end: Math.min(start + 60, DAY_END),
+      title: '',
+      note: '',
+      kind: 'work',
+      place: '',
+      login,
+    });
   }
 
   function openEntry(entry: PlannerEntry) {
-    const mine = entry.login === user.login;
-    if (!mine) {
+    if (!editable.has(entry.login)) {
       toast({
         title: entry.title,
         description: `${entry.author} · ${minutesToTime(entry.start)}–${minutesToTime(entry.end)}${
@@ -119,6 +134,7 @@ export default function PlannerView() {
       note: entry.note,
       kind: entry.kind,
       place: entry.place,
+      login: entry.login,
     });
   }
 
@@ -134,6 +150,7 @@ export default function PlannerView() {
         note: value.note,
         kind: value.kind,
         place: value.place,
+        login: value.login || user.login,
       });
       setData(next);
       setDraft(null);
@@ -198,7 +215,7 @@ export default function PlannerView() {
         {canEdit && (
           <Button onClick={() => openSlot(9 * 60)} className="rounded-full h-9 px-4 gap-1.5 text-[12px]">
             <Icon name="Plus" size={14} />
-            Добавить в день
+            {editablePeople.length > 1 ? 'Добавить запись' : 'Добавить в день'}
           </Button>
         )}
       </section>
@@ -288,12 +305,12 @@ export default function PlannerView() {
                     {HOURS.map((h) => (
                       <button
                         key={h}
-                        onClick={() => col.login === user.login && openSlot(h)}
-                        disabled={col.login !== user.login || !canEdit}
+                        onClick={() => openSlot(h, col.login)}
+                        disabled={!canEdit || !editable.has(col.login)}
                         style={{ height: 60 * PX_PER_MIN }}
                         className={cn(
                           'w-full border-b border-line/60 transition-colors',
-                          col.login === user.login && canEdit
+                          canEdit && editable.has(col.login)
                             ? 'hover:bg-surface cursor-pointer'
                             : 'cursor-default',
                         )}
@@ -325,6 +342,8 @@ export default function PlannerView() {
                           <span className="block text-[10px] text-muted-foreground truncate">
                             {minutesToTime(entry.start)}–{minutesToTime(entry.end)}
                             {entry.place && ` · ${entry.place}`}
+                            {entry.createdBy && entry.createdBy !== entry.login &&
+                              ` · от ${entry.createdByName || 'руководителя'}`}
                           </span>
                         </button>
                       );
@@ -338,6 +357,7 @@ export default function PlannerView() {
       </section>
 
       <PlannerDialog
+        people={editablePeople}
         draft={draft}
         dayLabel={dayLabel(day)}
         onClose={() => setDraft(null)}

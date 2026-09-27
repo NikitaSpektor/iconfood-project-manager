@@ -194,6 +194,8 @@ export interface PlannerEntry {
   kind: string;
   place: string;
   taskId: string;
+  createdBy?: string;
+  createdByName?: string;
 }
 
 export interface PlannerData {
@@ -203,6 +205,7 @@ export interface PlannerData {
   day: string;
   me: { login: string; name: string; role: string };
   canEdit: boolean;
+  editableLogins?: string[];
   scope?: 'all' | 'unit' | 'self';
   unit?: string;
 }

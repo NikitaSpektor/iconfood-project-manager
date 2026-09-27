@@ -46,6 +46,19 @@ def visible_logins(cur, user):
     return {user['login']}
 
 
+def may_edit_login(cur, user, target: str) -> bool:
+    """Свой день ведёт каждый, чужой — только руководитель этого подразделения."""
+    if not target or target == user['login']:
+        return True
+    if user['role'] == 'owner':
+        return True
+    if user['role'] == 'manager' and user.get('restaurant'):
+        cur.execute('SELECT 1 FROM users WHERE active = TRUE AND login = ' + q(target)
+                    + ' AND restaurant = ' + q(user['restaurant']))
+        return cur.fetchone() is not None
+    return False
+
+
 def week_bounds(day_str: str):
     try:
         parts = [int(p) for p in day_str.split('-')]
@@ -62,8 +75,9 @@ def load_week(cur, start: date, end: date, logins):
     allowed = ', '.join(q(l) for l in sorted(logins))
     cur.execute(
         'SELECT p.id, p.user_login, u.name, p.day, p.start_min, p.end_min, p.title, '
-        'p.note, p.kind, p.place, p.task_id '
+        'p.note, p.kind, p.place, p.task_id, p.created_by, a.name '
         'FROM planner_entries p LEFT JOIN users u ON u.login = p.user_login '
+        'LEFT JOIN users a ON a.login = p.created_by '
         'WHERE p.archived = FALSE AND p.day >= ' + q(start.isoformat())
         + ' AND p.day <= ' + q(end.isoformat())
         + ' AND p.user_login IN (' + allowed + ')'
@@ -83,6 +97,8 @@ def load_week(cur, start: date, end: date, logins):
             'kind': row[8],
             'place': row[9],
             'taskId': str(row[10]) if row[10] else '',
+            'createdBy': row[11] or row[1],
+            'createdByName': row[12] or '',
         })
     return entries
 
@@ -101,6 +117,7 @@ def load_people(cur, logins):
 def payload(cur, user, day_str: str):
     start, end, anchor = week_bounds(day_str)
     logins = visible_logins(cur, user)
+    editable = sorted(l for l in logins if may_edit_login(cur, user, l))
     return {
         'entries': load_week(cur, start, end, logins),
         'people': load_people(cur, logins),
@@ -108,6 +125,7 @@ def payload(cur, user, day_str: str):
         'day': anchor.isoformat(),
         'me': {'login': user['login'], 'name': user['name'], 'role': user['role']},
         'canEdit': True,
+        'editableLogins': editable,
         'scope': ('all' if user['role'] == 'owner'
                   else 'unit' if user['role'] == 'manager' and user.get('restaurant')
                   else 'self'),
@@ -170,16 +188,24 @@ def handler(event: dict, context) -> dict:
                     }
                 start = clamp(body.get('start'), 0, 1439, 540)
                 end = clamp(body.get('end'), start + 15, 1440, start + 60)
+                target = str(body.get('login') or '').strip() or user['login']
+                if not may_edit_login(cur, user, target):
+                    return {
+                        'statusCode': 403,
+                        'headers': CORS,
+                        'body': json.dumps({'error': 'Можно вести только свой день или день подчинённого'},
+                                           ensure_ascii=False),
+                    }
                 cur.execute(
                     'INSERT INTO planner_entries (user_login, day, start_min, end_min, title, '
-                    'note, kind, place, task_id) VALUES ('
-                    + q(user['login']) + ', ' + q(day_str) + ', ' + str(start) + ', '
+                    'note, kind, place, task_id, created_by) VALUES ('
+                    + q(target) + ', ' + q(day_str) + ', ' + str(start) + ', '
                     + str(end) + ', ' + q(title) + ', '
                     + q(str(body.get('note') or '')[:1000]) + ', '
                     + q(str(body.get('kind') or 'work')[:30]) + ', '
                     + q(str(body.get('place') or '')[:160]) + ', '
                     + (str(int(body['taskId'])) if str(body.get('taskId') or '').isdigit() else 'NULL')
-                    + ')'
+                    + ', ' + q(user['login']) + ')'
                 )
 
             elif action == 'update':
@@ -194,11 +220,12 @@ def handler(event: dict, context) -> dict:
                         'headers': CORS,
                         'body': json.dumps({'error': 'Запись не найдена'}),
                     }
-                if row[0] != user['login']:
+                if not may_edit_login(cur, user, row[0]):
                     return {
                         'statusCode': 403,
                         'headers': CORS,
-                        'body': json.dumps({'error': 'Редактировать можно только свой день'}),
+                        'body': json.dumps({'error': 'Редактировать можно свой день или день подчинённого'},
+                                           ensure_ascii=False),
                     }
                 day_str = day_str or row[1].isoformat()
                 sets = []
@@ -234,11 +261,12 @@ def handler(event: dict, context) -> dict:
                         'headers': CORS,
                         'body': json.dumps({'error': 'Запись не найдена'}),
                     }
-                if row[0] != user['login']:
+                if not may_edit_login(cur, user, row[0]):
                     return {
                         'statusCode': 403,
                         'headers': CORS,
-                        'body': json.dumps({'error': 'Удалять можно только свои записи'}),
+                        'body': json.dumps({'error': 'Удалять можно свои записи или записи подчинённых'},
+                                           ensure_ascii=False),
                     }
                 day_str = day_str or row[1].isoformat()
                 cur.execute(

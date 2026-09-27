@@ -29,17 +29,20 @@ export interface PlannerDraft {
   note: string;
   kind: string;
   place: string;
+  login?: string;
 }
 
 export default function PlannerDialog({
   draft,
   dayLabel,
+  people = [],
   onClose,
   onSave,
   onDelete,
 }: {
   draft: PlannerDraft | null;
   dayLabel: string;
+  people?: { login: string; name: string }[];
   onClose: () => void;
   onSave: (value: PlannerDraft) => Promise<void>;
   onDelete: (entry: PlannerEntry['id']) => Promise<void>;
@@ -48,6 +51,7 @@ export default function PlannerDialog({
   const [note, setNote] = useState('');
   const [kind, setKind] = useState('work');
   const [place, setPlace] = useState('');
+  const [login, setLogin] = useState('');
   const [from, setFrom] = useState('09:00');
   const [to, setTo] = useState('10:00');
   const [error, setError] = useState('');
@@ -59,6 +63,7 @@ export default function PlannerDialog({
     setNote(draft.note);
     setKind(draft.kind || 'work');
     setPlace(draft.place);
+    setLogin(draft.login || '');
     setFrom(minutesToTime(draft.start));
     setTo(minutesToTime(draft.end));
     setError('');
@@ -87,6 +92,7 @@ export default function PlannerDialog({
       note: note.trim(),
       kind,
       place,
+      login,
     });
     setBusy(false);
   }
@@ -102,6 +108,24 @@ export default function PlannerDialog({
         </DialogHeader>
 
         <form onSubmit={submit} className="space-y-4">
+          {people.length > 1 && !draft.id && (
+            <div className="space-y-1.5">
+              <Label>Кому ставим</Label>
+              <Select value={login} onValueChange={setLogin}>
+                <SelectTrigger className="rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="rounded-2xl">
+                  {people.map((p) => (
+                    <SelectItem key={p.login} value={p.login}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <Label htmlFor="pl-title">Чем заняты</Label>
             <Input
