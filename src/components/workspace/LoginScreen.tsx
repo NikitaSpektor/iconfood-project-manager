@@ -1,16 +1,31 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Icon from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { login as apiLogin, type ApiUser } from '@/lib/api';
+import { fetchMembers, login as apiLogin, type ApiUser } from '@/lib/api';
 
-const facts = [
-  { icon: 'Columns3', label: 'Доска, календарь и Гант', hint: 'Одни и те же задачи в трёх видах' },
-  { icon: 'MessageSquare', label: 'Мессенджер холдинга', hint: 'Каналы по ресторанам и проектам' },
-  { icon: 'Sparkles', label: 'Ассистент', hint: 'Разбирает сроки и загрузку людей' },
-  { icon: 'Users', label: '52 сотрудника', hint: 'Свой логин, пароль и права у каждого' },
-];
+function peopleLabel(count: number) {
+  const n = count % 100;
+  const d = n % 10;
+  if (n > 10 && n < 20) return `${count} сотрудников`;
+  if (d === 1) return `${count} сотрудник`;
+  if (d > 1 && d < 5) return `${count} сотрудника`;
+  return `${count} сотрудников`;
+}
+
+function factsOf(count: number) {
+  return [
+    { icon: 'Columns3', label: 'Доска, календарь и Гант', hint: 'Одни и те же задачи в трёх видах' },
+    { icon: 'MessageSquare', label: 'Мессенджер холдинга', hint: 'Каналы по ресторанам и проектам' },
+    { icon: 'Sparkles', label: 'Ассистент', hint: 'Разбирает сроки и загрузку людей' },
+    {
+      icon: 'Users',
+      label: count ? peopleLabel(count) : 'Команда холдинга',
+      hint: 'Свой логин, пароль и права у каждого',
+    },
+  ];
+}
 
 export default function LoginScreen({ onEnter }: { onEnter: (user: ApiUser) => void }) {
   const [login, setLogin] = useState('');
@@ -18,6 +33,19 @@ export default function LoginScreen({ onEnter }: { onEnter: (user: ApiUser) => v
   const [show, setShow] = useState(false);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [people, setPeople] = useState(0);
+
+  useEffect(() => {
+    let alive = true;
+    fetchMembers()
+      .then((list) => alive && setPeople(list.length))
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const facts = factsOf(people);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
