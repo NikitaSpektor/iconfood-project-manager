@@ -1,0 +1,1 @@
+UPDATE notifications SET is_read = TRUE WHERE task_title LIKE 'ПРОВЕРКА%';

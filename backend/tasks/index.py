@@ -636,13 +636,19 @@ def notify_one_activity(cur, task_id, title, actor, kind, text, assignee):
     )
     head = ('Новый файл в задаче' if kind == 'file'
             else 'Задача изменена' if kind == 'update'
+            else 'Задача снята' if kind == 'removed'
             else 'Комментарий к задаче')
     tg_personal(cur, target[0], head + '\n' + title + '\n' + actor + ': ' + text[:500])
-    push_to_login(cur, target[0], 'comment', head, actor + ': ' + text[:200])
+    push_to_login(cur, target[0], 'task' if kind == 'removed' else 'comment', head,
+                  actor + ': ' + (title if kind == 'removed' else text[:200]))
     to_email, who_name = email_of(cur, target[0])
     if kind == 'update':
         lead = actor + ' изменил вашу задачу.'
         rows = [('Что изменилось', text[:300]), ('Кто', actor)]
+        extra = ''
+    elif kind == 'removed':
+        lead = actor + ' снял задачу, по которой вы были исполнителем. Делать её больше не нужно.'
+        rows = [('Кто снял', actor)]
         extra = ''
     elif kind == 'file':
         lead = actor + ' прикрепил файл к вашей задаче.'
@@ -663,7 +669,9 @@ def notify_one_activity(cur, task_id, title, actor, kind, text, assignee):
             lead,
             title,
             rows,
-            'Ответить можно в карточке задачи в рабочем пространстве ICONFOOD.',
+            ('Задача убрана с доски. Если это ошибка — напишите автору в мессенджере ICONFOOD.'
+             if kind == 'removed'
+             else 'Ответить можно в карточке задачи в рабочем пространстве ICONFOOD.'),
             extra,
         ),
     )
@@ -1261,6 +1269,7 @@ def handler(event: dict, context) -> dict:
             cur.close()
             conn.close()
             return DENIED
+        notify_assignee(cur, task_id, user['name'], 'removed', 'Задача снята с доски')
         cur.execute('UPDATE tasks SET archived = TRUE WHERE id = ' + str(task_id))
         cur.execute('UPDATE subtasks SET archived = TRUE WHERE task_id = ' + str(task_id))
         conn.commit()

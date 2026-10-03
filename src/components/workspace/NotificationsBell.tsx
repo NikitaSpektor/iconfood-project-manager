@@ -32,7 +32,9 @@ export default function NotificationsBell({ onOpenTask }: { onOpenTask: (taskId:
       title:
         latest.kind === 'task'
           ? 'Вам назначили задачу'
-          : latest.kind === 'file'
+          : latest.kind === 'removed'
+            ? 'Задачу сняли — делать не нужно'
+            : latest.kind === 'file'
             ? 'Новый файл в вашей задаче'
             : latest.kind === 'update'
               ? 'Вашу задачу изменили'
@@ -72,9 +74,10 @@ export default function NotificationsBell({ onOpenTask }: { onOpenTask: (taskId:
             {notifications.map((n) => (
               <button
                 key={n.id}
-                onClick={() => onOpenTask(n.taskId)}
+                onClick={() => n.kind !== 'removed' && onOpenTask(n.taskId)}
                 className={cn(
-                  'w-full text-left px-3 py-2.5 flex gap-2.5 hover:bg-surface transition-colors',
+                  'w-full text-left px-3 py-2.5 flex gap-2.5 transition-colors',
+                  n.kind === 'removed' ? 'cursor-default' : 'hover:bg-surface',
                   !n.read && 'bg-flag-select/5',
                 )}
               >
@@ -83,7 +86,9 @@ export default function NotificationsBell({ onOpenTask }: { onOpenTask: (taskId:
                     name={
                       n.kind === 'task'
                         ? 'ClipboardCheck'
-                        : n.kind === 'file'
+                        : n.kind === 'removed'
+                          ? 'ClipboardX'
+                          : n.kind === 'file'
                           ? 'Paperclip'
                           : n.kind === 'update'
                             ? 'PencilLine'
@@ -93,7 +98,14 @@ export default function NotificationsBell({ onOpenTask }: { onOpenTask: (taskId:
                   />
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-[13px] font-medium truncate">{n.taskTitle}</span>
+                  <span
+                    className={cn(
+                      'block text-[13px] font-medium truncate',
+                      n.kind === 'removed' && 'line-through text-muted-foreground',
+                    )}
+                  >
+                    {n.taskTitle}
+                  </span>
                   <span className="block text-[12px] text-muted-foreground truncate">
                     {n.actor}: {n.text}
                   </span>

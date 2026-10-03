@@ -13,7 +13,7 @@ export interface Notification {
   id: string;
   taskId: string;
   taskTitle: string;
-  kind: 'comment' | 'file' | 'task' | 'update';
+  kind: 'comment' | 'file' | 'task' | 'update' | 'removed';
   actor: string;
   text: string;
   read: boolean;
