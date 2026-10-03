@@ -48,10 +48,27 @@ export interface ApiUser {
   email: string;
 }
 
-export async function login(loginName: string, password: string) {
+export interface FirstLogin {
+  mustChange: true;
+  ticket: string;
+  login: string;
+  name: string;
+}
+
+export async function login(loginName: string, password: string): Promise<ApiUser | FirstLogin> {
   const data = await request(AUTH_URL, {
     method: 'POST',
     body: JSON.stringify({ action: 'login', login: loginName, password }),
+  });
+  if (data.mustChange) return data as FirstLogin;
+  setToken(data.token);
+  return data.user as ApiUser;
+}
+
+export async function setFirstPassword(loginName: string, ticket: string, password: string) {
+  const data = await request(AUTH_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'first_password', login: loginName, ticket, password }),
   });
   setToken(data.token);
   return data.user as ApiUser;

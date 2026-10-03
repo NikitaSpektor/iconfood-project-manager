@@ -1,0 +1,2 @@
+UPDATE users SET password_hash = '955d211fd3a5b2edc2889345e8e29de634e755545287cb3d797c252a40e2a533' WHERE login = 'anna.shuvalova';
+UPDATE sessions SET expires_at = NOW() WHERE expires_at > NOW() AND user_id IN (SELECT id FROM users WHERE login = 'anna.shuvalova');

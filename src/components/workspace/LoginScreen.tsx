@@ -3,8 +3,9 @@ import Icon from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { fetchMembers, login as apiLogin, type ApiUser } from '@/lib/api';
+import { fetchMembers, login as apiLogin, type ApiUser, type FirstLogin } from '@/lib/api';
 import ForgotPassword from './ForgotPassword';
+import FirstPassword from './FirstPassword';
 
 function peopleLabel(count: number) {
   const n = count % 100;
@@ -36,6 +37,7 @@ export default function LoginScreen({ onEnter }: { onEnter: (user: ApiUser) => v
   const [busy, setBusy] = useState(false);
   const [people, setPeople] = useState(0);
   const [forgot, setForgot] = useState(false);
+  const [pending, setPending] = useState<FirstLogin | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -58,8 +60,13 @@ export default function LoginScreen({ onEnter }: { onEnter: (user: ApiUser) => v
     setError('');
     setBusy(true);
     try {
-      const user = await apiLogin(login.trim().toLowerCase(), pass.trim());
-      onEnter(user);
+      const res = await apiLogin(login.trim().toLowerCase(), pass.trim());
+      if ('mustChange' in res) {
+        setPass('');
+        setPending(res);
+        return;
+      }
+      onEnter(res);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось войти');
     } finally {
@@ -99,7 +106,13 @@ export default function LoginScreen({ onEnter }: { onEnter: (user: ApiUser) => v
 
         <section className="bento p-7 sm:p-10 flex flex-col justify-center animate-fade-in [animation-delay:.12s]">
           <div className="max-w-sm w-full mx-auto">
-            {forgot ? (
+            {pending ? (
+              <FirstPassword
+                pending={pending}
+                onBack={() => setPending(null)}
+                onEnter={onEnter}
+              />
+            ) : forgot ? (
               <ForgotPassword
                 initialLogin={login}
                 onBack={() => setForgot(false)}

@@ -98,6 +98,13 @@ def find_for_reset(cur, ident: str):
     return None
 
 
+STARTER_PASSWORD = 'iconfood'
+
+
+def is_weak(password: str) -> bool:
+    return password.strip().lower() == STARTER_PASSWORD or len(password) < 6
+
+
 def code_hash(login: str, code: str) -> str:
     return hashlib.sha256(('reset:' + login + ':' + code).encode()).hexdigest()
 
@@ -215,6 +222,20 @@ def handler(event: dict, context) -> dict:
             cur.close()
             conn.close()
             return {'statusCode': 401, 'headers': CORS, 'body': json.dumps({'error': 'Неверный логин или пароль'})}
+        if password == STARTER_PASSWORD:
+            ticket = secrets.token_hex(16)
+            cur.execute("UPDATE password_resets SET used = TRUE WHERE user_login = " + q(login)
+                        + " AND kind = 'first' AND used = FALSE")
+            cur.execute(
+                "INSERT INTO password_resets (user_login, code_hash, expires_at, kind) VALUES ("
+                + q(login) + ', ' + q(code_hash(login, ticket)) + ", NOW() + INTERVAL '15 minutes', 'first')"
+            )
+            conn.commit()
+            cur.close()
+            conn.close()
+            return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({
+                'mustChange': True, 'ticket': ticket, 'login': login, 'name': row[1],
+            })}
         token = secrets.token_hex(24)
         expires = (datetime.utcnow() + timedelta(days=14)).strftime('%Y-%m-%d %H:%M:%S')
         cur.execute(
@@ -238,6 +259,50 @@ def handler(event: dict, context) -> dict:
         conn.close()
         return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'ok': True})}
 
+    if action == 'first_password':
+        login = str(body.get('login', '')).strip().lower()
+        ticket = str(body.get('ticket', ''))
+        fresh = str(body.get('password', ''))
+        if is_weak(fresh):
+            cur.close()
+            conn.close()
+            return {'statusCode': 400, 'headers': CORS, 'body': json.dumps(
+                {'error': 'Придумайте свой пароль — минимум 6 символов и не «iconfood»'}, ensure_ascii=False)}
+        cur.execute(
+            "SELECT id, code_hash FROM password_resets WHERE user_login = " + q(login)
+            + " AND kind = 'first' AND used = FALSE AND expires_at > NOW() ORDER BY id DESC LIMIT 1"
+        )
+        row = cur.fetchone()
+        if not row or row[1] != code_hash(login, ticket):
+            cur.close()
+            conn.close()
+            return {'statusCode': 400, 'headers': CORS, 'body': json.dumps(
+                {'error': 'Время на смену пароля вышло — войдите заново'}, ensure_ascii=False)}
+        cur.execute('UPDATE password_resets SET used = TRUE WHERE id = ' + str(row[0]))
+        cur.execute('UPDATE users SET password_hash = ' + q(hash_password(login, fresh))
+                    + ' WHERE active = TRUE AND login = ' + q(login))
+        cur.execute('UPDATE sessions SET expires_at = NOW() WHERE user_id IN '
+                    '(SELECT id FROM users WHERE login = ' + q(login) + ')')
+        cur.execute('SELECT id, name, login, role, restaurant, email, position FROM users '
+                    'WHERE active = TRUE AND login = ' + q(login))
+        u = cur.fetchone()
+        if not u:
+            conn.rollback()
+            cur.close()
+            conn.close()
+            return {'statusCode': 404, 'headers': CORS, 'body': json.dumps({'error': 'Сотрудник не найден'}, ensure_ascii=False)}
+        token = secrets.token_hex(24)
+        expires = (datetime.utcnow() + timedelta(days=14)).strftime('%Y-%m-%d %H:%M:%S')
+        cur.execute('INSERT INTO sessions (token, user_id, expires_at) VALUES ('
+                    + q(token) + ', ' + str(u[0]) + ', ' + q(expires) + ')')
+        conn.commit()
+        cur.close()
+        conn.close()
+        return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({
+            'token': token,
+            'user': {'name': u[1], 'login': u[2], 'role': u[3], 'restaurant': u[4], 'email': u[5], 'position': u[6]},
+        })}
+
     if action == 'forgot':
         ident = str(body.get('login', '')).strip().lower()
         neutral = {'statusCode': 200, 'headers': CORS, 'body': json.dumps({
@@ -259,7 +324,7 @@ def handler(event: dict, context) -> dict:
             return neutral
         login, name, email = target
         cur.execute("SELECT COUNT(*) FROM password_resets WHERE user_login = " + q(login)
-                    + " AND created_at > NOW() - INTERVAL '15 minutes'")
+                    + " AND kind = 'code' AND created_at > NOW() - INTERVAL '15 minutes'")
         if cur.fetchone()[0] >= 3:
             cur.close()
             conn.close()
@@ -267,7 +332,8 @@ def handler(event: dict, context) -> dict:
                 'error': 'Код уже отправляли несколько раз. Проверьте почту или попробуйте через 15 минут'
             }, ensure_ascii=False)}
         code = str(secrets.randbelow(900000) + 100000)
-        cur.execute("UPDATE password_resets SET used = TRUE WHERE user_login = " + q(login) + " AND used = FALSE")
+        cur.execute("UPDATE password_resets SET used = TRUE WHERE user_login = " + q(login)
+                    + " AND kind = 'code' AND used = FALSE")
         cur.execute(
             "INSERT INTO password_resets (user_login, code_hash, expires_at) VALUES ("
             + q(login) + ', ' + q(code_hash(login, code)) + ", NOW() + INTERVAL '15 minutes')"
@@ -287,11 +353,11 @@ def handler(event: dict, context) -> dict:
         ident = str(body.get('login', '')).strip().lower()
         code = str(body.get('code', '')).strip()
         fresh = str(body.get('password', ''))
-        if len(fresh) < 6:
+        if is_weak(fresh):
             cur.close()
             conn.close()
             return {'statusCode': 400, 'headers': CORS, 'body': json.dumps(
-                {'error': 'Новый пароль — минимум 6 символов'}, ensure_ascii=False)}
+                {'error': 'Новый пароль — минимум 6 символов и не «iconfood»'}, ensure_ascii=False)}
         target = find_for_reset(cur, ident)
         bad = {'statusCode': 400, 'headers': CORS, 'body': json.dumps(
             {'error': 'Код неверный или устарел — запросите новый'}, ensure_ascii=False)}
@@ -302,7 +368,7 @@ def handler(event: dict, context) -> dict:
         login = target[0]
         cur.execute(
             'SELECT id, code_hash, attempts FROM password_resets WHERE user_login = ' + q(login)
-            + ' AND used = FALSE AND expires_at > NOW() ORDER BY id DESC LIMIT 1'
+            + " AND kind = 'code' AND used = FALSE AND expires_at > NOW() ORDER BY id DESC LIMIT 1"
         )
         row = cur.fetchone()
         if not row or row[2] >= 5:
@@ -390,11 +456,12 @@ def handler(event: dict, context) -> dict:
         current = str(body.get('current', ''))
         fresh = str(body.get('password', ''))
 
-        if len(fresh) < 6:
+        if is_weak(fresh):
             cur.close()
             conn.close()
             return {'statusCode': 400, 'headers': CORS,
-                    'body': json.dumps({'error': 'Новый пароль — минимум 6 символов'})}
+                    'body': json.dumps({'error': 'Новый пароль — минимум 6 символов и не «iconfood»'},
+                                       ensure_ascii=False)}
 
         if fresh == current:
             cur.close()

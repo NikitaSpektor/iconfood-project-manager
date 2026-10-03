@@ -61,7 +61,7 @@
       "expectedStatus": 401
     },
     {
-      "name": "Успешный вход",
+      "name": "Вход со стартовым паролем требует смены",
       "method": "POST",
       "path": "/",
       "body": {
@@ -69,7 +69,11 @@
         "login": "elena.metla",
         "password": "iconfood"
       },
-      "expectedStatus": 200
+      "expectedStatus": 200,
+      "expectedBody": {
+        "mustChange": true
+      },
+      "bodyMatcher": "partial"
     },
     {
       "name": "Запрос кода для неизвестного логина — нейтральный ответ",
@@ -94,6 +98,18 @@
         "login": "nobody.unknown",
         "code": "000000",
         "password": "qwerty123"
+      },
+      "expectedStatus": 400
+    },
+    {
+      "name": "Смена стартового пароля без билета запрещена",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "first_password",
+        "login": "elena.metla",
+        "ticket": "wrong",
+        "password": "novyi12345"
       },
       "expectedStatus": 400
     }
