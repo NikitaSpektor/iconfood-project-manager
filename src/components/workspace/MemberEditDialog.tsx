@@ -41,6 +41,7 @@ export default function MemberEditDialog({
   const [busy, setBusy] = useState(false);
   const [confirmOff, setConfirmOff] = useState(false);
   const [freshPassword, setFreshPassword] = useState('');
+  const [mailedTo, setMailedTo] = useState('');
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -95,6 +96,7 @@ export default function MemberEditDialog({
     try {
       const res = await resetMemberPassword(member.login);
       setFreshPassword(res.password);
+      setMailedTo(res.mailed ? res.email || '' : '');
       setCopied(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Не удалось сбросить пароль');
@@ -230,8 +232,14 @@ export default function MemberEditDialog({
               {freshPassword && (
                 <div className="rounded-xl bg-card border border-line p-3 space-y-2">
                   <p className="text-[11px] text-muted-foreground">
-                    Новый пароль — передайте сотруднику. Старый больше не работает, показать его
-                    второй раз не получится.
+                    {mailedTo ? (
+                      <>
+                        Логин и новый пароль отправлены на <b className="text-foreground">{mailedTo}</b>.
+                        Старый пароль больше не работает.
+                      </>
+                    ) : (
+                      'Новый пароль — передайте сотруднику. Старый больше не работает, показать его второй раз не получится.'
+                    )}
                   </p>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 font-mono text-[15px] font-semibold tracking-wider text-foreground">

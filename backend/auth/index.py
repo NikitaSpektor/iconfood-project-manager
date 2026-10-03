@@ -2,6 +2,9 @@ import json
 import os
 import hashlib
 import secrets
+import smtplib
+from email.header import Header
+from email.mime.text import MIMEText
 from datetime import datetime, timedelta
 
 import psycopg2
@@ -21,6 +24,48 @@ def q(value: str) -> str:
 
 def hash_password(login: str, password: str) -> str:
     return hashlib.sha256(f'{login}:{password}'.encode()).hexdigest()
+
+
+def send_access_email(to_email: str, name: str, login: str, password: str) -> bool:
+    """Отправляет сотруднику логин и новый пароль от рабочего пространства."""
+    host = os.environ.get('SMTP_HOST', '')
+    user = os.environ.get('SMTP_USER', '')
+    secret = os.environ.get('SMTP_PASSWORD', '')
+    if not host or not user or not secret or '@' not in (to_email or ''):
+        return False
+    first = (name or '').strip()
+    html = (
+        '<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px">'
+        '<p style="font-size:15px;color:#111">Здравствуйте' + (', ' + first if first else '') + '!</p>'
+        '<p style="font-size:14px;color:#333">Ваш доступ в рабочее пространство ICONFOOD обновлён.</p>'
+        '<div style="border:1px solid #e5e5e5;border-radius:14px;padding:16px 18px;margin:16px 0">'
+        '<p style="margin:4px 0;font-size:14px;color:#444">Логин: <b>' + login + '</b></p>'
+        '<p style="margin:4px 0;font-size:14px;color:#444">Пароль: <b>' + password + '</b></p>'
+        '</div>'
+        '<p style="font-size:13px;color:#888">После входа пароль можно сменить в настройках профиля. '
+        'Если вы не запрашивали доступ — сообщите руководителю.</p>'
+        '</div>'
+    )
+    msg = MIMEText(html, 'html', 'utf-8')
+    msg['Subject'] = Header('Доступ в ICONFOOD', 'utf-8')
+    sender = os.environ.get('SMTP_FROM', user)
+    msg['From'] = sender
+    msg['To'] = to_email
+    port = int(os.environ.get('SMTP_PORT', '465'))
+    try:
+        if port == 465:
+            server = smtplib.SMTP_SSL(host, port, timeout=8)
+        else:
+            server = smtplib.SMTP(host, port, timeout=8)
+            server.starttls()
+        server.login(user, secret)
+        server.sendmail(sender, [to_email], msg.as_string())
+        server.quit()
+        print('mail ok -> ' + to_email, flush=True)
+        return True
+    except Exception as err:
+        print('mail FAIL -> ' + to_email + ' | ' + type(err).__name__ + ': ' + str(err)[:200], flush=True)
+        return False
 
 
 def sync_unit_channel(cur, login: str, unit: str) -> None:
@@ -253,7 +298,7 @@ def handler(event: dict, context) -> dict:
             return {'statusCode': 403, 'headers': CORS,
                     'body': json.dumps({'error': 'Недостаточно прав'})}
         login = str(body.get('login', '')).strip().lower()
-        cur.execute('SELECT name, role FROM users WHERE login = ' + q(login))
+        cur.execute('SELECT name, role, email FROM users WHERE login = ' + q(login))
         target = cur.fetchone()
         if not target:
             cur.close()
@@ -284,8 +329,10 @@ def handler(event: dict, context) -> dict:
             conn.commit()
             cur.close()
             conn.close()
+            mailed = send_access_email(target[2], target[0], login, password)
             return {'statusCode': 200, 'headers': CORS,
-                    'body': json.dumps({'ok': True, 'login': login, 'password': password})}
+                    'body': json.dumps({'ok': True, 'login': login, 'password': password,
+                                        'mailed': mailed, 'email': target[2] or ''})}
 
         if action == 'restore':
             cur.execute('UPDATE users SET active = TRUE WHERE login = ' + q(login))

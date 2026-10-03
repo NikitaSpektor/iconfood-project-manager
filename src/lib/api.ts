@@ -113,7 +113,7 @@ export async function resetMemberPassword(loginName: string) {
   return request(AUTH_URL, {
     method: 'POST',
     body: JSON.stringify({ action: 'reset_password', login: loginName }),
-  }) as Promise<{ ok: boolean; login: string; password: string }>;
+  }) as Promise<{ ok: boolean; login: string; password: string; mailed?: boolean; email?: string }>;
 }
 
 export async function restoreMember(loginName: string) {
