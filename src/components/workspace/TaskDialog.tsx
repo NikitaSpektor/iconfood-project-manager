@@ -148,6 +148,12 @@ export default function TaskDialog({
                   Шаблон «{live.template}»
                 </span>
               )}
+              {live.createdByName && (
+                <span className="rounded-full bg-surface border border-line px-2.5 py-1 text-[11px] text-muted-foreground inline-flex items-center gap-1">
+                  <Icon name="PenLine" size={11} />
+                  Поставил: {live.createdByName}
+                </span>
+              )}
             </div>
             <div className="flex items-start gap-2">
               <DialogTitle className="text-xl leading-tight tracking-tight flex-1">

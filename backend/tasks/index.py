@@ -45,16 +45,18 @@ def current_user(cur, event):
 
 
 def can_manage(cur, user, task_id=None) -> bool:
-    """Владелец правит всё, управляющий — задачи своего подразделения, автор — свою личную."""
+    """Владелец правит всё, автор — свою задачу, управляющий — задачи своего подразделения."""
     if user.get('role') == 'owner':
         return True
     if not task_id:
         return user.get('role') == 'manager'
-    cur.execute('SELECT owner_login, restaurant, assignee FROM tasks WHERE id = ' + str(int(task_id)))
+    cur.execute('SELECT owner_login, restaurant, assignee, created_by FROM tasks WHERE id = ' + str(int(task_id)))
     row = cur.fetchone()
     if not row:
         return False
-    owner_login, restaurant, assignee = row
+    owner_login, restaurant, assignee, created_by = row
+    if created_by and created_by == user['login']:
+        return True
     if owner_login:
         return owner_login == user['login'] or user.get('role') == 'owner'
     if user.get('role') == 'manager':
@@ -783,10 +785,12 @@ def unit_colleagues(cur, unit: str) -> set:
 
 
 def visible_task(task, user, colleagues=None) -> bool:
-    """Владелец видит всё, управляющий — своё подразделение, остальные — задачи со своим участием."""
+    """Владелец видит всё, автор — свои, управляющий — своё подразделение, остальные — со своим участием."""
     owner_login = task['ownerLogin']
     people = task['assignees'] + task['watchers']
     if user.get('role') == 'owner':
+        return True
+    if task.get('createdBy') and task['createdBy'] == user['login']:
         return True
     if owner_login:
         return owner_login == user['login'] or user['name'] in people
@@ -799,6 +803,8 @@ def visible_task(task, user, colleagues=None) -> bool:
 
 def editable_task(task, user, colleagues=None) -> bool:
     """Может ли пользователь править эту задачу — та же логика, что и на сервере."""
+    if task.get('createdBy') and task['createdBy'] == user['login']:
+        return True
     if task['ownerLogin']:
         return task['ownerLogin'] == user['login'] or user.get('role') == 'owner'
     if user.get('role') == 'owner':
@@ -823,7 +829,7 @@ def visible_for(cur, user):
 def load_tasks(cur, login):
     cur.execute(
         'SELECT id, title, restaurant, column_id, priority, cover, deadline, assignee, watchers, '
-        'template, note, track, gantt_start, gantt_span, owner_login, created_at '
+        'template, note, track, gantt_start, gantt_span, owner_login, created_at, created_by '
         'FROM tasks WHERE archived = FALSE ORDER BY id DESC'
     )
     rows = cur.fetchall()
@@ -878,6 +884,8 @@ def load_tasks(cur, login):
             'deadline': r[6],
             'assignee': people_list(r[7])[0] if people_list(r[7]) else '',
             'assignees': people_list(r[7]),
+            'createdBy': r[16] or '',
+            'createdByName': name_by_login.get(r[16] or '', ''),
             'watchers': [w for w in (r[8] or '').split('|') if w],
             'template': r[9],
             'note': r[10],
@@ -1238,13 +1246,13 @@ def handler(event: dict, context) -> dict:
             conn.commit()
     elif action == 'delete_task':
         task_id = int(body.get('taskId', 0))
-        cur.execute('SELECT owner_login FROM tasks WHERE id = ' + str(task_id) + ' AND archived = FALSE')
+        cur.execute('SELECT owner_login, created_by FROM tasks WHERE id = ' + str(task_id) + ' AND archived = FALSE')
         row = cur.fetchone()
         if not row:
             cur.close()
             conn.close()
             return {'statusCode': 404, 'headers': CORS, 'body': json.dumps({'error': 'Задача не найдена'})}
-        if row[0] and row[0] != user['login']:
+        if row[0] and row[0] != user['login'] and row[1] != user['login']:
             cur.close()
             conn.close()
             return {'statusCode': 403, 'headers': CORS,
@@ -1319,13 +1327,13 @@ def handler(event: dict, context) -> dict:
         owner = user['login'] if body.get('personal') else ''
         cur.execute(
             'INSERT INTO tasks (title, restaurant, column_id, priority, cover, deadline, assignee, watchers, '
-            'template, note, track, gantt_start, gantt_span, owner_login) VALUES ('
+            'template, note, track, gantt_start, gantt_span, owner_login, created_by) VALUES ('
             + q(body.get('title')) + ', ' + q('|'.join(people_list(body.get('restaurant', '')))) + ', ' + q(body.get('column', 'new')) + ', '
             + q(body.get('priority', 'normal')) + ', ' + q(body.get('cover', 'none')) + ', ' + q(body.get('deadline', '')) + ', '
             + q('|'.join(people_list(body.get('assignees') or body.get('assignee', '')))) + ', '
             + q('|'.join(body.get('watchers') or [])) + ', '
             + q(body.get('template')) + ', ' + q(body.get('note')) + ', ' + q(body.get('track', 'Задачи')) + ', '
-            + str(int(body.get('ganttStart', 10))) + ', ' + str(int(body.get('ganttSpan', 30))) + ', ' + q(owner) + ') RETURNING id'
+            + str(int(body.get('ganttStart', 10))) + ', ' + str(int(body.get('ganttSpan', 30))) + ', ' + q(owner) + ', ' + q(user['login']) + ') RETURNING id'
         )
         new_id = cur.fetchone()[0]
         subtasks = body.get('subtasks') or []

@@ -45,6 +45,8 @@ export interface Task {
   template?: string;
   personal: boolean;
   ownerLogin?: string;
+  createdBy?: string;
+  createdByName?: string;
   mayEdit?: boolean;
   subtasks: Subtask[];
   comments?: Comment[];
