@@ -113,7 +113,7 @@ export default function LoginScreen({ onEnter }: { onEnter: (user: ApiUser) => v
             </div>
             <h2 className="font-head text-2xl font-bold tracking-tight">Здравствуйте</h2>
             <p className="text-[13px] text-muted-foreground mt-1.5">
-              Логин выдаёт управляющий. Стартовый пароль для всех сотрудников — iconfood.
+              Логин и пароль выдаёт управляющий. Забыли пароль — восстановите его по рабочей почте.
             </p>
 
             <form onSubmit={submit} className="mt-6 space-y-4">
