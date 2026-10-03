@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Checkbox } from '@/components/ui/checkbox';
+import PickList from './PickList';
 import Icon from '@/components/ui/icon';
 import {
   RESTAURANTS,
@@ -52,7 +52,17 @@ export default function TaskEditDialog({
   onOpenChange: (v: boolean) => void;
 }) {
   const { updateTask } = useWorkspace();
-  const [people, setPeople] = useState<{ id: string; name: string }[]>([]);
+  const [people, setPeople] = useState<{ id: string; name: string; restaurant?: string; position?: string }[]>([]);
+  const peopleItems = useMemo(
+    () =>
+      people.map((m) => ({
+        key: m.name,
+        label: m.name,
+        hint: [m.restaurant, m.position].filter(Boolean).join(' · '),
+      })),
+    [people],
+  );
+  const unitItems = useMemo(() => RESTAURANTS.map((r) => ({ key: r, label: r })), []);
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
   const [assignees, setAssignees] = useState<string[]>([]);
@@ -80,7 +90,9 @@ export default function TaskEditDialog({
   useEffect(() => {
     if (!task) return;
     fetchMembers()
-      .then((list) => setPeople(list.map((m) => ({ id: m.id, name: m.name }))))
+      .then((list) =>
+        setPeople(list.map((m) => ({ id: m.id, name: m.name, restaurant: m.restaurant, position: m.position }))),
+      )
       .catch(() => undefined);
   }, [task]);
 
@@ -145,20 +157,13 @@ export default function TaskEditDialog({
             <Icon name="ChevronsUpDown" size={14} className="opacity-50 shrink-0" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[260px] rounded-2xl p-1.5" align="start">
-          <div className="max-h-[min(16rem,45vh)] overflow-y-auto overscroll-contain touch-pan-y thin-scrollbar [-webkit-overflow-scrolling:touch]">
-            {people.map((m) => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => toggle(list, set, m.name)}
-                className="w-full flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm hover:bg-muted text-left"
-              >
-                <Checkbox checked={list.includes(m.name)} className="pointer-events-none" />
-                <span className="truncate">{m.name}</span>
-              </button>
-            ))}
-          </div>
+        <PopoverContent className="w-[280px] rounded-2xl p-1.5" align="start">
+          <PickList
+            items={peopleItems}
+            selected={list}
+            onToggle={(name) => toggle(list, set, name)}
+            placeholder="Имя или подразделение"
+          />
         </PopoverContent>
       </Popover>
     );
@@ -227,24 +232,18 @@ export default function TaskEditDialog({
                     <Icon name="ChevronsUpDown" size={14} className="opacity-50 shrink-0" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-[260px] rounded-2xl p-1.5" align="start">
-                  <div className="max-h-[min(16rem,45vh)] overflow-y-auto overscroll-contain touch-pan-y thin-scrollbar [-webkit-overflow-scrolling:touch]">
-                    {RESTAURANTS.map((r) => (
-                      <button
-                        key={r}
-                        type="button"
-                        onClick={() =>
-                          setUnits((prev) =>
-                            prev.includes(r) ? prev.filter((n) => n !== r) : [...prev, r],
-                          )
-                        }
-                        className="w-full flex items-center gap-2 rounded-xl px-2.5 py-2 text-sm hover:bg-muted text-left"
-                      >
-                        <Checkbox checked={units.includes(r)} className="pointer-events-none" />
-                        <span className="truncate">{r}</span>
-                      </button>
-                    ))}
-                  </div>
+                <PopoverContent className="w-[280px] rounded-2xl p-1.5" align="start">
+                  <PickList
+                    items={unitItems}
+                    selected={units}
+                    onToggle={(r) =>
+                      setUnits((prev) =>
+                        prev.includes(r) ? prev.filter((n) => n !== r) : [...prev, r],
+                      )
+                    }
+                    placeholder="Найти подразделение"
+                    empty="Такого подразделения нет"
+                  />
                 </PopoverContent>
               </Popover>
             </div>
