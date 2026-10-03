@@ -1,0 +1,1 @@
+UPDATE users SET password_hash = '06a53e472811ad363cf153dca0273a9b55abaa0c8c7690bc4827fb4a44767625' WHERE login = 'goncharova';

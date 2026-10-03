@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { fetchMembers, login as apiLogin, type ApiUser } from '@/lib/api';
+import ForgotPassword from './ForgotPassword';
 
 function peopleLabel(count: number) {
   const n = count % 100;
@@ -34,6 +35,7 @@ export default function LoginScreen({ onEnter }: { onEnter: (user: ApiUser) => v
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const [people, setPeople] = useState(0);
+  const [forgot, setForgot] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -97,6 +99,14 @@ export default function LoginScreen({ onEnter }: { onEnter: (user: ApiUser) => v
 
         <section className="bento p-7 sm:p-10 flex flex-col justify-center animate-fade-in [animation-delay:.12s]">
           <div className="max-w-sm w-full mx-auto">
+            {forgot ? (
+              <ForgotPassword
+                initialLogin={login}
+                onBack={() => setForgot(false)}
+                onEnter={onEnter}
+              />
+            ) : (
+              <>
             <div className="eyebrow mb-4">
               <i className="h-2.5 w-2.5 rounded-[3px] bg-bar" />
               Вход для сотрудников
@@ -118,7 +128,19 @@ export default function LoginScreen({ onEnter }: { onEnter: (user: ApiUser) => v
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="pw">Пароль</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="pw">Пароль</Label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setError('');
+                      setForgot(true);
+                    }}
+                    className="text-[12px] text-primary hover:underline"
+                  >
+                    Забыли пароль?
+                  </button>
+                </div>
                 <div className="relative">
                   <Input
                     id="pw"
@@ -151,6 +173,9 @@ export default function LoginScreen({ onEnter }: { onEnter: (user: ApiUser) => v
                 <Icon name="ArrowRight" size={16} />
               </Button>
             </form>
+
+              </>
+            )}
 
             <div className="mt-6 pt-5 border-t border-line text-[12px] text-muted-foreground">
               Нет доступа? Управляющий добавит вас по рабочей почте — приглашение придёт письмом.

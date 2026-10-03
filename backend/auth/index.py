@@ -26,28 +26,15 @@ def hash_password(login: str, password: str) -> str:
     return hashlib.sha256(f'{login}:{password}'.encode()).hexdigest()
 
 
-def send_access_email(to_email: str, name: str, login: str, password: str) -> bool:
-    """Отправляет сотруднику логин и новый пароль от рабочего пространства."""
+def send_mail(to_email: str, subject: str, html: str) -> bool:
+    """Отправляет письмо через почтовый сервер холдинга."""
     host = os.environ.get('SMTP_HOST', '')
     user = os.environ.get('SMTP_USER', '')
     secret = os.environ.get('SMTP_PASSWORD', '')
     if not host or not user or not secret or '@' not in (to_email or ''):
         return False
-    first = (name or '').strip()
-    html = (
-        '<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px">'
-        '<p style="font-size:15px;color:#111">Здравствуйте' + (', ' + first if first else '') + '!</p>'
-        '<p style="font-size:14px;color:#333">Ваш доступ в рабочее пространство ICONFOOD обновлён.</p>'
-        '<div style="border:1px solid #e5e5e5;border-radius:14px;padding:16px 18px;margin:16px 0">'
-        '<p style="margin:4px 0;font-size:14px;color:#444">Логин: <b>' + login + '</b></p>'
-        '<p style="margin:4px 0;font-size:14px;color:#444">Пароль: <b>' + password + '</b></p>'
-        '</div>'
-        '<p style="font-size:13px;color:#888">После входа пароль можно сменить в настройках профиля. '
-        'Если вы не запрашивали доступ — сообщите руководителю.</p>'
-        '</div>'
-    )
     msg = MIMEText(html, 'html', 'utf-8')
-    msg['Subject'] = Header('Доступ в ICONFOOD', 'utf-8')
+    msg['Subject'] = Header(subject, 'utf-8')
     sender = os.environ.get('SMTP_FROM', user)
     msg['From'] = sender
     msg['To'] = to_email
@@ -61,11 +48,58 @@ def send_access_email(to_email: str, name: str, login: str, password: str) -> bo
         server.login(user, secret)
         server.sendmail(sender, [to_email], msg.as_string())
         server.quit()
-        print('mail ok -> ' + to_email, flush=True)
+        print('mail ok -> ' + to_email + ' | ' + subject, flush=True)
         return True
     except Exception as err:
         print('mail FAIL -> ' + to_email + ' | ' + type(err).__name__ + ': ' + str(err)[:200], flush=True)
         return False
+
+
+def mail_card(name: str, lead: str, rows, footer: str) -> str:
+    cells = ''.join(
+        '<p style="margin:4px 0;font-size:14px;color:#444">' + k + ': <b>' + v + '</b></p>' for k, v in rows
+    )
+    return (
+        '<div style="font-family:Arial,Helvetica,sans-serif;max-width:560px">'
+        '<p style="font-size:15px;color:#111">Здравствуйте' + (', ' + name if name else '') + '!</p>'
+        '<p style="font-size:14px;color:#333">' + lead + '</p>'
+        '<div style="border:1px solid #e5e5e5;border-radius:14px;padding:16px 18px;margin:16px 0">'
+        + cells + '</div>'
+        '<p style="font-size:13px;color:#888">' + footer + '</p>'
+        '</div>'
+    )
+
+
+def send_access_email(to_email: str, name: str, login: str, password: str) -> bool:
+    """Отправляет сотруднику логин и новый пароль от рабочего пространства."""
+    return send_mail(to_email, 'Доступ в ICONFOOD', mail_card(
+        (name or '').strip(),
+        'Ваш доступ в рабочее пространство ICONFOOD обновлён.',
+        [('Логин', login), ('Пароль', password)],
+        'После входа пароль можно сменить в настройках профиля. '
+        'Если вы не запрашивали доступ — сообщите руководителю.',
+    ))
+
+
+def find_for_reset(cur, ident: str):
+    """Ищет активного сотрудника по логину или по личной почте (общий ящик не подходит)."""
+    ident = (ident or '').strip().lower()
+    if not ident:
+        return None
+    cur.execute('SELECT login, name, email FROM users WHERE active = TRUE AND login = ' + q(ident))
+    row = cur.fetchone()
+    if row:
+        return row
+    if '@' in ident:
+        cur.execute('SELECT login, name, email FROM users WHERE active = TRUE AND lower(email) = ' + q(ident))
+        rows = cur.fetchall()
+        if len(rows) == 1:
+            return rows[0]
+    return None
+
+
+def code_hash(login: str, code: str) -> str:
+    return hashlib.sha256(('reset:' + login + ':' + code).encode()).hexdigest()
 
 
 def sync_unit_channel(cur, login: str, unit: str) -> None:
@@ -203,6 +237,107 @@ def handler(event: dict, context) -> dict:
         cur.close()
         conn.close()
         return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({'ok': True})}
+
+    if action == 'forgot':
+        ident = str(body.get('login', '')).strip().lower()
+        neutral = {'statusCode': 200, 'headers': CORS, 'body': json.dumps({
+            'ok': True,
+            'message': 'Если такой сотрудник есть, код уже отправлен на его рабочую почту'
+        }, ensure_ascii=False)}
+        target = find_for_reset(cur, ident)
+        if not target or '@' not in (target[2] or ''):
+            if ident and '@' in ident:
+                cur.execute('SELECT COUNT(*) FROM users WHERE active = TRUE AND lower(email) = ' + q(ident))
+                if cur.fetchone()[0] > 1:
+                    cur.close()
+                    conn.close()
+                    return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({
+                        'error': 'Эта почта общая для нескольких сотрудников — введите свой логин'
+                    }, ensure_ascii=False)}
+            cur.close()
+            conn.close()
+            return neutral
+        login, name, email = target
+        cur.execute("SELECT COUNT(*) FROM password_resets WHERE user_login = " + q(login)
+                    + " AND created_at > NOW() - INTERVAL '15 minutes'")
+        if cur.fetchone()[0] >= 3:
+            cur.close()
+            conn.close()
+            return {'statusCode': 429, 'headers': CORS, 'body': json.dumps({
+                'error': 'Код уже отправляли несколько раз. Проверьте почту или попробуйте через 15 минут'
+            }, ensure_ascii=False)}
+        code = str(secrets.randbelow(900000) + 100000)
+        cur.execute("UPDATE password_resets SET used = TRUE WHERE user_login = " + q(login) + " AND used = FALSE")
+        cur.execute(
+            "INSERT INTO password_resets (user_login, code_hash, expires_at) VALUES ("
+            + q(login) + ', ' + q(code_hash(login, code)) + ", NOW() + INTERVAL '15 minutes')"
+        )
+        conn.commit()
+        cur.close()
+        conn.close()
+        send_mail(email, 'Код для смены пароля ICONFOOD', mail_card(
+            (name or '').strip(),
+            'Вы запросили смену пароля в рабочем пространстве ICONFOOD. Введите этот код на странице входа.',
+            [('Логин', login), ('Код', code)],
+            'Код действует 15 минут. Если вы ничего не запрашивали — просто удалите письмо, пароль останется прежним.',
+        ))
+        return neutral
+
+    if action == 'reset_confirm':
+        ident = str(body.get('login', '')).strip().lower()
+        code = str(body.get('code', '')).strip()
+        fresh = str(body.get('password', ''))
+        if len(fresh) < 6:
+            cur.close()
+            conn.close()
+            return {'statusCode': 400, 'headers': CORS, 'body': json.dumps(
+                {'error': 'Новый пароль — минимум 6 символов'}, ensure_ascii=False)}
+        target = find_for_reset(cur, ident)
+        bad = {'statusCode': 400, 'headers': CORS, 'body': json.dumps(
+            {'error': 'Код неверный или устарел — запросите новый'}, ensure_ascii=False)}
+        if not target:
+            cur.close()
+            conn.close()
+            return bad
+        login = target[0]
+        cur.execute(
+            'SELECT id, code_hash, attempts FROM password_resets WHERE user_login = ' + q(login)
+            + ' AND used = FALSE AND expires_at > NOW() ORDER BY id DESC LIMIT 1'
+        )
+        row = cur.fetchone()
+        if not row or row[2] >= 5:
+            cur.close()
+            conn.close()
+            return bad
+        if row[1] != code_hash(login, code):
+            cur.execute('UPDATE password_resets SET attempts = attempts + 1'
+                        + (', used = TRUE' if row[2] + 1 >= 5 else '') + ' WHERE id = ' + str(row[0]))
+            conn.commit()
+            cur.close()
+            conn.close()
+            left = 4 - row[2]
+            return {'statusCode': 400, 'headers': CORS, 'body': json.dumps({
+                'error': ('Код неверный. Осталось попыток: ' + str(left)) if left > 0
+                else 'Попытки закончились — запросите новый код'
+            }, ensure_ascii=False)}
+        cur.execute('UPDATE password_resets SET used = TRUE WHERE id = ' + str(row[0]))
+        cur.execute('UPDATE users SET password_hash = ' + q(hash_password(login, fresh))
+                    + ' WHERE login = ' + q(login))
+        cur.execute('UPDATE sessions SET expires_at = NOW() WHERE user_id IN '
+                    '(SELECT id FROM users WHERE login = ' + q(login) + ')')
+        cur.execute('SELECT id, name, login, role, restaurant, email, position FROM users WHERE login = ' + q(login))
+        u = cur.fetchone()
+        token = secrets.token_hex(24)
+        expires = (datetime.utcnow() + timedelta(days=14)).strftime('%Y-%m-%d %H:%M:%S')
+        cur.execute('INSERT INTO sessions (token, user_id, expires_at) VALUES ('
+                    + q(token) + ', ' + str(u[0]) + ', ' + q(expires) + ')')
+        conn.commit()
+        cur.close()
+        conn.close()
+        return {'statusCode': 200, 'headers': CORS, 'body': json.dumps({
+            'token': token,
+            'user': {'name': u[1], 'login': u[2], 'role': u[3], 'restaurant': u[4], 'email': u[5], 'position': u[6]},
+        })}
 
     if action == 'invite':
         name = str(body.get('name', '')).strip()

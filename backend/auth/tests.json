@@ -70,6 +70,32 @@
         "password": "iconfood"
       },
       "expectedStatus": 200
+    },
+    {
+      "name": "Запрос кода для неизвестного логина — нейтральный ответ",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "forgot",
+        "login": "nobody.unknown"
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "ok": true
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Неверный код не меняет пароль",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "action": "reset_confirm",
+        "login": "nobody.unknown",
+        "code": "000000",
+        "password": "qwerty123"
+      },
+      "expectedStatus": 400
     }
   ]
 }

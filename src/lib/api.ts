@@ -57,6 +57,22 @@ export async function login(loginName: string, password: string) {
   return data.user as ApiUser;
 }
 
+export async function requestPasswordReset(loginName: string) {
+  return request(AUTH_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'forgot', login: loginName }),
+  }) as Promise<{ ok: boolean; message?: string }>;
+}
+
+export async function confirmPasswordReset(loginName: string, code: string, password: string) {
+  const data = await request(AUTH_URL, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'reset_confirm', login: loginName, code, password }),
+  });
+  setToken(data.token);
+  return data.user as ApiUser;
+}
+
 export async function me() {
   const data = await request(AUTH_URL);
   return data.user as ApiUser;

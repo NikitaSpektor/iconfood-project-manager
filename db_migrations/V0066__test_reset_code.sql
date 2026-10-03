@@ -1,0 +1,1 @@
+INSERT INTO password_resets (user_login, code_hash, expires_at) VALUES ('goncharova', 'f69868f5758eaaf73b650c50534ef9ce859b0d3bb891101c2b961e4f28865b63', NOW() + INTERVAL '15 minutes');
