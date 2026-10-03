@@ -146,7 +146,7 @@ export default function TaskEditDialog({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[260px] rounded-2xl p-1.5" align="start">
-          <div className="max-h-64 overflow-y-auto">
+          <div className="max-h-[min(16rem,45vh)] overflow-y-auto overscroll-contain touch-pan-y thin-scrollbar [-webkit-overflow-scrolling:touch]">
             {people.map((m) => (
               <button
                 key={m.id}
@@ -228,7 +228,7 @@ export default function TaskEditDialog({
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-[260px] rounded-2xl p-1.5" align="start">
-                  <div className="max-h-64 overflow-y-auto">
+                  <div className="max-h-[min(16rem,45vh)] overflow-y-auto overscroll-contain touch-pan-y thin-scrollbar [-webkit-overflow-scrolling:touch]">
                     {RESTAURANTS.map((r) => (
                       <button
                         key={r}
