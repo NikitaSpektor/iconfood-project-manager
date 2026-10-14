@@ -203,7 +203,7 @@ def handler(event: dict, context) -> dict:
                     + str(end) + ', ' + q(title) + ', '
                     + q(str(body.get('note') or '')[:1000]) + ', '
                     + q(str(body.get('kind') or 'work')[:30]) + ', '
-                    + q(str(body.get('place') or '')[:160]) + ', '
+                    + q(str(body.get('place') or '')[:1500]) + ', '
                     + (str(int(body['taskId'])) if str(body.get('taskId') or '').isdigit() else 'NULL')
                     + ', ' + q(user['login']) + ')'
                 )
@@ -236,7 +236,7 @@ def handler(event: dict, context) -> dict:
                 if 'kind' in body:
                     sets.append('kind = ' + q(str(body['kind'])[:30]))
                 if 'place' in body:
-                    sets.append('place = ' + q(str(body['place'])[:160]))
+                    sets.append('place = ' + q(str(body['place'])[:1500]))
                 if 'start' in body:
                     sets.append('start_min = ' + str(clamp(body['start'], 0, 1439, 540)))
                 if 'end' in body:

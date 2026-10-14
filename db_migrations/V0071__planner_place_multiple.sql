@@ -1,0 +1,1 @@
+ALTER TABLE planner_entries ALTER COLUMN place TYPE VARCHAR(1500);

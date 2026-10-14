@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import Icon from '@/components/ui/icon';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import PickList from './PickList';
 import { RESTAURANTS } from '@/data/workspace';
 import { PLANNER_KINDS, minutesToTime, timeToMinutes } from '@/lib/planner';
 import type { PlannerEntry } from '@/lib/api';
@@ -50,7 +52,8 @@ export default function PlannerDialog({
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
   const [kind, setKind] = useState('work');
-  const [place, setPlace] = useState('');
+  const [places, setPlaces] = useState<string[]>([]);
+  const placeItems = useMemo(() => RESTAURANTS.map((r) => ({ key: r, label: r })), []);
   const [login, setLogin] = useState('');
   const [from, setFrom] = useState('09:00');
   const [to, setTo] = useState('10:00');
@@ -62,7 +65,12 @@ export default function PlannerDialog({
     setTitle(draft.title);
     setNote(draft.note);
     setKind(draft.kind || 'work');
-    setPlace(draft.place);
+    setPlaces(
+      draft.place
+        .split(',')
+        .map((p) => p.trim())
+        .filter(Boolean),
+    );
     setLogin(draft.login || '');
     setFrom(minutesToTime(draft.start));
     setTo(minutesToTime(draft.end));
@@ -91,7 +99,7 @@ export default function PlannerDialog({
       title: title.trim(),
       note: note.trim(),
       kind,
-      place,
+      place: places.join(', '),
       login,
     });
     setBusy(false);
@@ -180,22 +188,70 @@ export default function PlannerDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>Место</Label>
-              <Select value={place || 'none'} onValueChange={(v) => setPlace(v === 'none' ? '' : v)}>
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl">
-                  <SelectItem value="none">Не указано</SelectItem>
-                  {RESTAURANTS.map((r) => (
-                    <SelectItem key={r} value={r}>
-                      {r}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label>Места</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full rounded-xl justify-between font-normal"
+                  >
+                    <span className="truncate">
+                      {places.length === 0
+                        ? 'Не указано'
+                        : places.length === 1
+                          ? places[0]
+                          : `${places[0]} и ещё ${places.length - 1}`}
+                    </span>
+                    <Icon name="ChevronsUpDown" size={14} className="opacity-50 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[280px] rounded-2xl p-1.5" align="end">
+                  <PickList
+                    items={placeItems}
+                    selected={places}
+                    onToggle={(r) =>
+                      setPlaces((prev) =>
+                        prev.includes(r) ? prev.filter((n) => n !== r) : [...prev, r],
+                      )
+                    }
+                    placeholder="Найти место"
+                    empty="Такого места нет"
+                  />
+                  {places.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setPlaces([])}
+                      className="w-full mt-1 rounded-xl px-2.5 py-1.5 text-[12px] text-muted-foreground hover:text-foreground hover:bg-muted text-left"
+                    >
+                      Снять все отметки
+                    </button>
+                  )}
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
+
+          {places.length > 1 && (
+            <div className="flex flex-wrap gap-1.5 -mt-1">
+              {places.map((p) => (
+                <span
+                  key={p}
+                  className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-[12px]"
+                >
+                  {p}
+                  <button
+                    type="button"
+                    onClick={() => setPlaces((prev) => prev.filter((n) => n !== p))}
+                    className="text-muted-foreground hover:text-foreground"
+                    aria-label={`Убрать ${p}`}
+                  >
+                    <Icon name="X" size={12} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label htmlFor="pl-note">Заметка — по желанию</Label>

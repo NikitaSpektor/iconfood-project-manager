@@ -21,6 +21,11 @@ import PlannerDialog, { type PlannerDraft } from './PlannerDialog';
 
 const PX_PER_MIN = 1.1;
 
+function shortPlaces(value: string) {
+  const list = value.split(',').map((p) => p.trim()).filter(Boolean);
+  return list.length > 1 ? `${list[0]} +${list.length - 1}` : list[0] || '';
+}
+
 export default function PlannerView() {
   const { user } = useWorkspace();
   const [day, setDay] = useState(isoDay(new Date()));
@@ -334,14 +339,14 @@ export default function PlannerView() {
                             'absolute left-1.5 right-1.5 rounded-tile border px-2 py-1 text-left overflow-hidden transition-opacity hover:opacity-80',
                             kind.chip,
                           )}
-                          title={`${entry.title} · ${minutesToTime(entry.start)}–${minutesToTime(entry.end)}`}
+                          title={`${entry.title} · ${minutesToTime(entry.start)}–${minutesToTime(entry.end)}${entry.place ? ` · ${entry.place}` : ''}`}
                         >
                           <span className="block text-[11px] font-medium leading-tight truncate">
                             {entry.title}
                           </span>
                           <span className="block text-[10px] text-muted-foreground truncate">
                             {minutesToTime(entry.start)}–{minutesToTime(entry.end)}
-                            {entry.place && ` · ${entry.place}`}
+                            {entry.place && ` · ${shortPlaces(entry.place)}`}
                             {entry.createdBy && entry.createdBy !== entry.login &&
                               ` · от ${entry.createdByName || 'руководителя'}`}
                           </span>
