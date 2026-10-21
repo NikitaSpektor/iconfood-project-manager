@@ -3,6 +3,7 @@ import json
 import os
 import re
 import smtplib
+import time
 import urllib.parse
 import urllib.request
 import uuid
@@ -472,6 +473,9 @@ def deadline_date(deadline: str, today):
     return due
 
 
+_JOBS_AT = {'t': 0.0}
+
+
 def announce_overdue(cur):
     """Сообщает в каналы подразделений о задачах, просроченных по дедлайну."""
     today = date.today()
@@ -925,7 +929,11 @@ def handler(event: dict, context) -> dict:
         return {'statusCode': 401, 'headers': CORS, 'body': json.dumps({'error': 'Требуется вход'})}
 
     if method == 'GET':
-        for job in (announce_overdue, daily_digest):
+        jobs = ()
+        if time.time() - _JOBS_AT['t'] > 300:
+            _JOBS_AT['t'] = time.time()
+            jobs = (announce_overdue, daily_digest)
+        for job in jobs:
             try:
                 job(cur)
                 conn.commit()
@@ -1347,9 +1355,12 @@ def handler(event: dict, context) -> dict:
         new_id = cur.fetchone()[0]
         subtasks = body.get('subtasks') or []
         for i, s in enumerate(subtasks):
+            step_title = str(s.get('title') if isinstance(s, dict) else s or '').strip()
+            if not step_title:
+                continue
             cur.execute(
                 'INSERT INTO subtasks (task_id, title, done, position) VALUES ('
-                + str(new_id) + ', ' + q(s.get('title')) + ', false, ' + str(i) + ')'
+                + str(new_id) + ', ' + q(step_title[:300]) + ', false, ' + str(i) + ')'
             )
         named = people_list(body.get('assignees') or body.get('assignee', ''))
         notify_new_task(

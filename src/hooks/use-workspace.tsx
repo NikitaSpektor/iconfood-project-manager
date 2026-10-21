@@ -73,10 +73,16 @@ export function WorkspaceProvider({ children, user }: { children: ReactNode; use
   }, [apply]);
 
   useEffect(() => {
-    const timer = setInterval(() => {
+    const refresh = () => {
+      if (document.hidden) return;
       fetchTasks().then(apply).catch(() => undefined);
-    }, 15000);
-    return () => clearInterval(timer);
+    };
+    const timer = setInterval(refresh, 15000);
+    document.addEventListener('visibilitychange', refresh);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', refresh);
+    };
   }, [apply]);
 
   const markNotificationsRead = useCallback(() => {

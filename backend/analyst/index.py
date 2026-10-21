@@ -137,13 +137,37 @@ def load_details(cur, ids):
     return subs, sub_names, task_comments, step_comments, files
 
 
-def board_snapshot(cur):
+def split(value) -> list:
+    return [p.strip() for p in str(value or '').split('|') if p.strip()]
+
+
+def can_see(user: dict, owner_login, created_by, assignee, watchers, units) -> bool:
+    """Те же правила, что у доски: владелец — всё, остальные — своё и своё подразделение."""
+    people = split(assignee) + split(watchers)
+    if user.get('role') == 'owner':
+        return True
+    if created_by and created_by == user['login']:
+        return True
+    if owner_login:
+        return owner_login == user['login'] or user['name'] in people
+    if user['name'] in people:
+        return True
+    if user.get('role') == 'manager' and user.get('restaurant'):
+        return user['restaurant'] in split(units)
+    return False
+
+
+def board_snapshot(cur, user: dict):
     today = date.today()
     cur.execute(
-        'SELECT id, title, restaurant, column_id, priority, deadline, assignee, note '
+        'SELECT id, title, restaurant, column_id, priority, deadline, assignee, note, '
+        'watchers, owner_login, created_by '
         'FROM tasks WHERE archived = FALSE ORDER BY id DESC'
     )
-    rows = cur.fetchall()
+    rows = [
+        r[:8] for r in cur.fetchall()
+        if can_see(user, r[9], r[10], r[6], r[8], r[2])
+    ]
     ids = [r[0] for r in rows]
     subs, sub_names, task_comments, step_comments, files = load_details(cur, ids)
 
@@ -210,7 +234,7 @@ def board_snapshot(cur):
 
     header = (
         'Сегодня: ' + today.strftime('%d.%m.%Y') + '\n'
-        'Активных досок холдинга — задач всего: ' + str(total)
+        'Задач, доступных сотруднику, всего: ' + str(total)
         + ' (новые: ' + str(stats.get('new', 0))
         + ', в работе: ' + str(stats.get('progress', 0))
         + ', готово: ' + str(stats.get('done', 0)) + ')\n'
@@ -223,17 +247,18 @@ def board_snapshot(cur):
     return header + '\nСписок активных задач:\n' + '\n'.join(lines[:320]), total
 
 
-def task_card(cur, task_id: int):
+def task_card(cur, task_id: int, user: dict):
     """Полная карточка одной задачи со всеми шагами и комментариями."""
     today = date.today()
     cur.execute(
-        'SELECT id, title, restaurant, column_id, priority, deadline, assignee, watchers, note '
+        'SELECT id, title, restaurant, column_id, priority, deadline, assignee, watchers, note, '
+        'owner_login, created_by '
         'FROM tasks WHERE id = ' + str(task_id) + ' AND archived = FALSE'
     )
     row = cur.fetchone()
-    if not row:
+    if not row or not can_see(user, row[9], row[10], row[6], row[7], row[2]):
         return None, ''
-    tid, title, place, column, priority, deadline, assignee, watchers, note = row
+    tid, title, place, column, priority, deadline, assignee, watchers, note = row[:9]
     subs, sub_names, task_comments, step_comments, files = load_details(cur, [tid])
     steps = subs.get(tid, [])
     done_steps = sum(1 for _, _, d in steps if d)
@@ -378,7 +403,7 @@ def handler(event: dict, context) -> dict:
                     'body': json.dumps({'error': 'Нужно войти в систему'}),
                 }
             if report_mode:
-                snapshot, found = task_card(cur, int(raw_task))
+                snapshot, found = task_card(cur, int(raw_task), user)
                 if not snapshot:
                     return {
                         'statusCode': 404,
@@ -387,7 +412,7 @@ def handler(event: dict, context) -> dict:
                     }
                 total = 1
             else:
-                snapshot, total = board_snapshot(cur)
+                snapshot, total = board_snapshot(cur, user)
     finally:
         conn.close()
 
@@ -396,7 +421,7 @@ def handler(event: dict, context) -> dict:
             'statusCode': 200,
             'headers': CORS,
             'body': json.dumps(
-                {'answer': 'На досках холдинга сейчас нет активных задач — разбирать нечего.',
+                {'answer': 'У вас сейчас нет активных задач — разбирать нечего.',
                  'tasks': 0},
                 ensure_ascii=False,
             ),
